@@ -1,0 +1,106 @@
+---
+# src/content/docs/index.mdx
+title: GitHub for AI Builders
+description: Learn GitHub from zero to mid-level proficiency by building a real Agent-to-Agent AI system. Security practices woven throughout every module.
+template: splash
+hero:
+  tagline: Learn GitHub the way it's actually used — by building something real.
+  image:
+    file: ../../../public/hero-illustration.svg
+  actions:
+    - text: Start with Module 00
+      link: /modules/00-setup/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/[your-org]/github-for-ai-builders
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## What makes this course different?
+
+Most GitHub courses teach commands in isolation. This course is different — every concept is introduced **because the project needs it.**
+
+From Module 00 through the Capstone, you build a working **Agent-to-Agent (A2A) AI system**: an Orchestrator that routes tasks to a team of Specialist Agents. Every GitHub feature gets introduced at the moment it solves a real problem in that project.
+
+Security is woven throughout. Every module includes a **Security Note** connecting GitHub's security tooling to real risks in AI development — from accidentally committing API keys to evaluating third-party agent contributions.
+
+---
+
+## The Course at a Glance
+
+<CardGrid>
+  <Card title="9 Modules" icon="open-book">
+    From environment setup to a full release pipeline, each module builds on the last.
+  </Card>
+  <Card title="Real Project" icon="rocket">
+    Every concept is taught by building an Agent-to-Agent AI system — not toy examples.
+  </Card>
+  <Card title="Security Thread" icon="warning">
+    Security notes in every module connect GitHub's security tools to real AI development risks.
+  </Card>
+  <Card title="Educator Ready" icon="document">
+    Facilitator guides, timing estimates, and assessment rubrics for classroom use.
+  </Card>
+</CardGrid>
+
+---
+
+## Course Path
+
+<LinkCard
+  title="00 · Environment Setup"
+  description="Fork the A2A starter repo, launch a Codespace, and set up your .gitignore from day one."
+  href="/modules/00-setup/"
+/>
+<LinkCard
+  title="01 · Repositories & Commits"
+  description="Initialize the Orchestrator Agent repo with a meaningful README and your first commits."
+  href="/modules/01-repos-and-commits/"
+/>
+<LinkCard
+  title="02 · Branching & Merging"
+  description="Branch strategies, merge conflicts, and why no one should push directly to main."
+  href="/modules/02-branching-and-merging/"
+/>
+<LinkCard
+  title="05 · GitHub Actions & CI/CD ⭐"
+  description="Build the CI pipeline that lints, tests, and validates the A2A system on every PR."
+  href="/modules/05-github-actions/"
+/>
+<LinkCard
+  title="06 · Security on GitHub ⭐"
+  description="Dependabot, CodeQL, Secret Scanning, CODEOWNERS, and Software Bills of Materials."
+  href="/modules/06-security/"
+/>
+
+---
+
+## For Educators
+
+<CardGrid>
+  <LinkCard
+    title="Facilitator Guide"
+    description="Classroom setup, timing estimates, and tips for teaching each module."
+    href="/educators/facilitator-guide/"
+  />
+  <LinkCard
+    title="Assessment Rubrics"
+    description="Capstone rubric and per-module assessment checklists."
+    href="/educators/rubrics/"
+  />
+</CardGrid>
+
+---
+
+## Open Source · MIT License
+
+This course is free for anyone to use, remix, and teach — including commercially.
+Released under the MIT License for the GitHub educator community.
+
+```
+https://github.com/[your-org]/github-for-ai-builders
+```

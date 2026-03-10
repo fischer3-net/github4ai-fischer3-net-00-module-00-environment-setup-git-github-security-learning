@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  <!-- Placeholder logo — replace with final artwork -->
+  <!-- Robot emoji + course name, simple wordmark style -->
+  <text x="0" y="30" font-family="Georgia, serif" font-size="26" font-weight="700" fill="#5b4fcf">🤖</text>
+  <text x="36" y="28" font-family="Georgia, serif" font-size="18" font-weight="700" fill="#1c1917" letter-spacing="-0.5">GitHub for AI Builders</text>
+</svg>

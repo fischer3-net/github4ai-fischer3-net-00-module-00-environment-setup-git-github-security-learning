@@ -1,0 +1,347 @@
+# ============================================================
+# CI — Continuous Integration Pipeline
+# ============================================================
+#
+# MODULE 05 TEACHING REFERENCE
+# This workflow is the primary teaching example for Module 05
+# (GitHub Actions & CI/CD). Every section is commented to
+# explain the "what" and the "why" for learners.
+#
+# What this workflow does:
+#   1. Lints all Markdown content for style consistency
+#   2. Validates all YAML files (workflows, issue templates)
+#   3. Checks for broken links across all documentation
+#   4. Runs unit tests for the Python starter project
+#   5. Runs unit tests for the Node.js starter project
+#   6. Validates the A2A agent message schema
+#
+# When it runs:
+#   - On every push to `main`
+#   - On every pull request targeting `main`
+#   - Can be triggered manually via the Actions tab
+# ============================================================
+
+name: CI
+
+# ── Triggers ────────────────────────────────────────────────
+# The `on` key defines WHEN this workflow runs.
+# `push` runs it when commits land on main.
+# `pull_request` runs it on every PR targeting main —
+#   this is the key safety gate before any merge.
+# `workflow_dispatch` adds a manual "Run workflow" button
+#   in the GitHub Actions UI, useful for debugging.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# ── Concurrency ─────────────────────────────────────────────
+# If a new push arrives while CI is already running for the
+# same branch/PR, cancel the old run and start fresh.
+# This prevents a queue of stale CI runs building up.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ── Default permissions ──────────────────────────────────────
+# SECURITY: Set the minimum permissions the GITHUB_TOKEN needs
+# by default. Individual jobs can expand these if required.
+# Principle of least privilege: read-only by default.
+permissions:
+  contents: read
+
+# ── Jobs ────────────────────────────────────────────────────
+# Each job runs in its own isolated virtual machine.
+# Jobs run in PARALLEL by default unless you use `needs`.
+jobs:
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: Markdown Linting
+  # Ensures all lesson content follows consistent formatting.
+  # ──────────────────────────────────────────────────────────
+  lint-markdown:
+    name: Lint Markdown
+    runs-on: ubuntu-latest   # The type of virtual machine to use
+
+    steps:
+      # STEP: Checkout
+      # Clones the repository into the runner's workspace.
+      # SECURITY NOTE: We pin this action to a commit SHA rather
+      # than a tag (e.g., @v4). Tags can be moved by the action
+      # author; commit SHAs are immutable. This protects against
+      # a compromised action update silently affecting our pipeline.
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # STEP: Run markdownlint
+      # Uses a community action from the GitHub Marketplace.
+      # The config lives in .markdownlint.yml at the repo root.
+      - name: Lint Markdown files
+        uses: DavidAnson/markdownlint-cli2-action@07035fd053f7be764496c0f8d8f9f41f98305101  # v22.0.0
+        with:
+          globs: |
+            **/*.md
+            !node_modules/**
+            !starter-project/**/node_modules/**
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: YAML Validation
+  # Validates workflow files and issue templates so broken
+  # YAML doesn't make it into the teaching material.
+  # ──────────────────────────────────────────────────────────
+  lint-yaml:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Lint YAML files
+        uses: ibiqlik/action-yamllint@2576f25b5c511c8d4a98f09d9815a3d0f2e7c2e8  # v3.1.1
+        with:
+          config_file: .yamllint.yml
+          file_or_dir: .github/
+          strict: true
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: Link Checking
+  # Scans all Markdown files for broken hyperlinks.
+  # Runs only on push to main (not on PRs) to avoid rate
+  # limiting from external sites during high-PR periods.
+  # ──────────────────────────────────────────────────────────
+  check-links:
+    name: Check Links
+    runs-on: ubuntu-latest
+    # Only run link checks on pushes to main, not on every PR
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Check links in Markdown
+        uses: lycheeverse/lychee-action@82c3a0f36b4d97278acf3701d1bdadcd1b1b4d28  # v2.3.0
+        with:
+          # Check all markdown files; exclude localhost and placeholder URLs
+          args: >-
+            --verbose
+            --no-progress
+            --exclude 'localhost'
+            --exclude 'your-org'
+            --exclude '127\.0\.0\.1'
+            --exclude-path 'node_modules'
+            **/*.md
+        env:
+          # Provide a token to avoid GitHub API rate limits when
+          # checking github.com links (uses GITHUB_TOKEN, not a PAT)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 4: Python Starter Project Tests
+  # Runs the unit test suite for the Python (FastAPI) variant.
+  # ──────────────────────────────────────────────────────────
+  test-python:
+    name: Test Python Starter Project
+    runs-on: ubuntu-latest
+
+    # Test against multiple Python versions to ensure compatibility
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+      # If one matrix version fails, don't cancel the others.
+      # This helps us see ALL failures, not just the first one.
+      fail-fast: false
+
+    defaults:
+      run:
+        # Set the working directory for all steps in this job
+        working-directory: starter-project/python
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Cache pip dependencies using the requirements file as the cache key.
+          # If requirements.txt hasn't changed, we restore from cache
+          # and skip the download entirely — much faster CI runs.
+          cache: pip
+          cache-dependency-path: starter-project/python/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Check formatting with ruff
+        run: ruff format --check .
+
+      - name: Run unit tests with coverage
+        run: |
+          pytest tests/ \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -v
+        env:
+          # SECURITY: Tests use a dummy API key from a secret,
+          # never a real key committed to the repository.
+          # In tests, agents should mock external API calls anyway,
+          # but we model good secret hygiene regardless.
+          OPENAI_API_KEY: ${{ secrets.TEST_OPENAI_API_KEY || 'sk-test-dummy-key-for-unit-tests' }}
+
+      # Upload coverage as an artifact so it persists after the run.
+      # Artifacts are downloadable from the Actions UI for 30 days.
+      - name: Upload coverage report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
+        # Upload even if tests fail, so we can inspect coverage on failures
+        if: always()
+        with:
+          name: python-coverage-${{ matrix.python-version }}
+          path: starter-project/python/coverage.xml
+          retention-days: 14
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 5: Node.js Starter Project Tests
+  # Runs the unit test suite for the Node.js (Express) variant.
+  # ──────────────────────────────────────────────────────────
+  test-nodejs:
+    name: Test Node.js Starter Project
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ["20", "22"]
+      fail-fast: false
+
+    defaults:
+      run:
+        working-directory: starter-project/nodejs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238  # v6.2.0
+        with:
+          node-version: ${{ matrix.node-version }}
+          # Cache npm dependencies using package-lock.json as the key
+          cache: npm
+          cache-dependency-path: starter-project/nodejs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci   # `ci` is stricter than `install` — uses exact lockfile versions
+
+      - name: Lint with ESLint
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+        env:
+          OPENAI_API_KEY: ${{ secrets.TEST_OPENAI_API_KEY || 'sk-test-dummy-key-for-unit-tests' }}
+          NODE_ENV: test
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 6: Schema Validation
+  # Validates the A2A agent message schema used throughout
+  # the course. Ensures agents and the Orchestrator stay
+  # compatible as the project evolves across modules.
+  # ──────────────────────────────────────────────────────────
+  validate-schema:
+    name: Validate A2A Message Schema
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: starter-project/python/requirements.txt
+
+      - name: Install jsonschema
+        run: pip install jsonschema --break-system-packages || pip install jsonschema
+
+      - name: Validate agent message schema
+        run: |
+          python -c "
+          import json, jsonschema, glob, sys
+
+          # Load the canonical A2A message schema
+          with open('starter-project/schema/a2a-message.schema.json') as f:
+              schema = json.load(f)
+
+          # Validate all example message fixtures against the schema
+          fixtures = glob.glob('starter-project/schema/fixtures/*.json')
+          if not fixtures:
+              print('WARNING: No schema fixtures found. Add test fixtures to starter-project/schema/fixtures/')
+              sys.exit(0)
+
+          errors = []
+          for fixture_path in fixtures:
+              with open(fixture_path) as f:
+                  instance = json.load(f)
+              try:
+                  jsonschema.validate(instance, schema)
+                  print(f'  ✓ {fixture_path}')
+              except jsonschema.ValidationError as e:
+                  errors.append(f'  ✗ {fixture_path}: {e.message}')
+
+          if errors:
+              print('\nSchema validation failed:')
+              for err in errors:
+                  print(err)
+              sys.exit(1)
+          else:
+              print(f'\nAll {len(fixtures)} schema fixtures are valid.')
+          "
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 7: CI Gate (Required Status Check)
+  # This job runs AFTER all other jobs and only passes if
+  # they all pass. Configure this single job as the required
+  # status check in your branch protection rules — much easier
+  # than listing every individual job.
+  # ──────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    # `needs` declares dependencies — this job waits for all
+    # listed jobs to complete before it starts.
+    needs:
+      - lint-markdown
+      - lint-yaml
+      - test-python
+      - test-nodejs
+      - validate-schema
+    # Run even if upstream jobs fail, so the gate always
+    # produces a result (pass or fail) for branch protection.
+    if: always()
+
+    steps:
+      - name: Evaluate CI results
+        run: |
+          # Check whether any required jobs failed or were cancelled.
+          # `needs.*.result` contains the outcome of each dependency.
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Job results: $results"
+
+          if echo "$results" | grep -qE '(failure|cancelled)'; then
+            echo "❌ One or more CI jobs failed. See above for details."
+            exit 1
+          else
+            echo "✅ All CI jobs passed."
+          fi

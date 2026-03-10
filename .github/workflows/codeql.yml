@@ -1,0 +1,115 @@
+# ============================================================
+# CodeQL — Automated Code Security Scanning
+# ============================================================
+#
+# MODULE 06 TEACHING REFERENCE — Security on GitHub
+# This workflow enables GitHub's CodeQL static analysis tool,
+# which scans the starter project for security vulnerabilities
+# and dangerous coding patterns automatically.
+#
+# What is CodeQL?
+#   CodeQL treats code as data. It runs queries against your
+#   codebase to find patterns that match known vulnerability
+#   types — things like SQL injection, path traversal, or
+#   in the context of AI agents, unsafe deserialization of
+#   agent responses.
+#
+# Where do results appear?
+#   Security tab → Code scanning → CodeQL
+#   (Visible to repo admins and users with Security permissions)
+#
+# When it runs:
+#   - On every push to main
+#   - On every PR targeting main
+#   - On a weekly schedule (to catch newly-discovered vuln patterns
+#     even if your code hasn't changed)
+# ============================================================
+
+name: CodeQL Security Scanning
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "starter-project/**"
+      - ".github/workflows/codeql.yml"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "starter-project/**"
+
+  schedule:
+    # Run weekly on Monday mornings at 08:00 UTC.
+    # Even if no code has changed, new CodeQL query packs
+    # may flag previously undetected patterns.
+    - cron: "0 8 * * 1"
+
+  workflow_dispatch:
+
+# SECURITY: CodeQL only needs read access to the code and
+# write access to post its findings to the Security tab.
+permissions:
+  contents: read
+  security-events: write
+  actions: read   # Required for private repos
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────
+  # JOB: Analyze
+  # Runs CodeQL analysis for each supported language in
+  # the starter project.
+  # ──────────────────────────────────────────────────────────
+  analyze:
+    name: CodeQL Analysis (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # CodeQL supports: c-cpp, csharp, go, java-kotlin,
+        # javascript-typescript, python, ruby, swift
+        language:
+          - python
+          - javascript-typescript
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # Initialize CodeQL — this sets up the analysis environment
+      # and selects the security query suite for the given language.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@89a39a4e59826350b863aa6b6252a07ad50cf83e  # v4.32.4
+        with:
+          languages: ${{ matrix.language }}
+          # Use the 'security-extended' query suite, which includes
+          # more queries than the default. For AI projects, this
+          # catches additional patterns relevant to agent systems,
+          # such as unsafe deserialization and SSRF risks.
+          queries: security-extended
+          # You can add custom CodeQL queries here as the course
+          # matures. Custom queries could target A2A-specific
+          # patterns, like agents that forward user input
+          # directly to external APIs without sanitization.
+          # config-file: .github/codeql-config.yml
+
+      # For interpreted languages like Python and JavaScript,
+      # CodeQL can autobuild. For compiled languages (Java, C++),
+      # you would need a manual build step here.
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@89a39a4e59826350b863aa6b6252a07ad50cf83e  # v4.32.4
+
+      # Run the analysis and upload results to the Security tab.
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@89a39a4e59826350b863aa6b6252a07ad50cf83e  # v4.32.4
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Upload results even for PRs from forks.
+          # (Results from forks are shown to the PR author only,
+          # not published to the main repo's Security tab.)
+          upload: always
