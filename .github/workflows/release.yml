@@ -1,0 +1,259 @@
+# ============================================================
+# Release — Publish Versioned Releases
+# ============================================================
+#
+# MODULE 08 TEACHING REFERENCE — Packages, Releases & Pages
+# This workflow automates the release process when a new
+# version tag is pushed (e.g., v1.0.0, v1.2.0).
+#
+# What this workflow does:
+#   1. Builds Docker images for both starter project variants
+#   2. Publishes images to GitHub Container Registry (ghcr.io)
+#   3. Generates a Software Bill of Materials (SBOM)
+#   4. Signs the release artifacts with artifact attestation
+#   5. Creates a GitHub Release with auto-generated notes
+#
+# How to trigger a release:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#
+# The release will appear at:
+#   https://github.com/fischer3-net/git-github-security-learning/releases
+#
+# Images will be published at:
+#   ghcr.io/fischer3-net/git-github-security-learning/orchestrator:v1.0.0
+#   ghcr.io/fischer3-net/git-github-security-learning/orchestrator:latest
+# ============================================================
+
+name: Release
+
+on:
+  push:
+    # Only trigger on version tags — not on branch pushes.
+    # Tag pattern: v followed by semver (v1.0.0, v2.1.3, etc.)
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v1.0.0)"
+        required: true
+        type: string
+
+# SECURITY: Release needs elevated permissions to:
+#   - Push packages to the container registry (packages: write)
+#   - Create a GitHub Release (contents: write)
+#   - Generate artifact attestations (id-token: write, attestations: write)
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository is "org/repo" — lowercased for Docker compatibility
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 1: Build and Push Docker Images
+  # Builds container images for the Orchestrator and
+  # pushes them to GitHub Container Registry (ghcr.io).
+  # ──────────────────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - variant: python
+            context: starter-project/python
+            image_suffix: orchestrator-python
+          - variant: nodejs
+            context: starter-project/nodejs
+            image_suffix: orchestrator-nodejs
+
+    # Outputs let other jobs reference the image digest,
+    # which we use for artifact attestation.
+    outputs:
+      python-digest: ${{ steps.push-python.outputs.digest }}
+      nodejs-digest: ${{ steps.push-nodejs.outputs.digest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # Extract version metadata from the git tag to use as
+      # Docker image tags. For v1.2.3, this produces:
+      #   type=semver → 1.2.3, 1.2, 1
+      #   type=sha    → git commit SHA (for traceability)
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbea8a86e83e195daa43b85f4f6c  # v5.7.0
+        with:
+          images: ${{ env.IMAGE_BASE }}/${{ matrix.image_suffix }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Log in to GitHub Container Registry using the
+      # automatically-provided GITHUB_TOKEN — no manual
+      # secret configuration needed.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Enable BuildKit cache to speed up image builds.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+
+      - name: Build and push Docker image
+        id: push-${{ matrix.variant }}
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Use GitHub Actions cache to speed up layer builds
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.variant }}
+          # Include build provenance metadata (who built it, when, from what commit)
+          provenance: true
+          sbom: true   # Generate SBOM at the image level
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2: Artifact Attestation
+  # Signs the Docker images using GitHub's artifact attestation,
+  # creating a cryptographically verifiable link between the
+  # image and the workflow run that produced it.
+  #
+  # MODULE 08 SECURITY NOTE:
+  # Attestations let users verify that an image was built by
+  # THIS repository's CI, not by someone who gained access to
+  # your container registry. Verify with:
+  #   gh attestation verify oci://ghcr.io/fischer3-net/orchestrator:v1.0.0
+  # ──────────────────────────────────────────────────────────
+  attest:
+    name: Attest Release Artifacts
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Attest Python orchestrator image
+        uses: actions/attest-build-provenance@db473fddc028af60658a9ae47e9b2e78c22539bc  # v2.3.0
+        with:
+          subject-name: ${{ env.IMAGE_BASE }}/orchestrator-python
+          subject-digest: ${{ needs.build-and-push.outputs.python-digest }}
+          push-to-registry: true
+
+      - name: Attest Node.js orchestrator image
+        uses: actions/attest-build-provenance@db473fddc028af60658a9ae47e9b2e78c22539bc  # v2.3.0
+        with:
+          subject-name: ${{ env.IMAGE_BASE }}/orchestrator-nodejs
+          subject-digest: ${{ needs.build-and-push.outputs.nodejs-digest }}
+          push-to-registry: true
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 3: Generate SBOM
+  # A Software Bill of Materials lists every dependency in the
+  # project, enabling users to check whether any dependency
+  # has a known vulnerability (CVE).
+  #
+  # MODULE 06 SECURITY NOTE:
+  # SBOMs are increasingly required by enterprise and government
+  # consumers of open-source software. Generating one at release
+  # time is a low-effort, high-trust signal to your users.
+  # ──────────────────────────────────────────────────────────
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0efcd49  # v0.20.0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+          artifact-name: sbom.spdx.json
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 4: Create GitHub Release
+  # Creates the Release entry with auto-generated release notes
+  # that list PRs and contributors since the last tag.
+  # ──────────────────────────────────────────────────────────
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-push
+      - attest
+      - generate-sbom
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Create Release
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+
+            // Generate release notes automatically from merged PRs
+            const { data: notes } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+            });
+
+            const body = [
+              notes.body,
+              '',
+              '---',
+              '',
+              '## 🔐 Security & Verification',
+              '',
+              '### Verify container image authenticity',
+              'Before deploying, verify that the images were built by this repository:',
+              '```bash',
+              `gh attestation verify oci://ghcr.io/${context.repo.owner}/${context.repo.repo}/orchestrator-python:${tag} --repo ${context.repo.owner}/${context.repo.repo}`,
+              '```',
+              '',
+              '### SBOM',
+              'A Software Bill of Materials (SBOM) is attached to this release as `sbom.spdx.json`.',
+              '',
+              '### Docker images',
+              '```bash',
+              `# Python variant`,
+              `docker pull ghcr.io/${context.repo.owner}/${context.repo.repo}/orchestrator-python:${tag}`,
+              '',
+              `# Node.js variant`,
+              `docker pull ghcr.io/${context.repo.owner}/${context.repo.repo}/orchestrator-nodejs:${tag}`,
+              '```',
+            ].join('\n');
+
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `GitHub for AI Builders ${tag}`,
+              body: body,
+              draft: false,
+              prerelease: tag.includes('-'),  // e.g., v1.0.0-beta.1 is a prerelease
+            });

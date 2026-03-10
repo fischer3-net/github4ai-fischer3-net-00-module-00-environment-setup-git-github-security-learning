@@ -1,0 +1,78 @@
+# .markdownlint.yml
+# ============================================================
+# Markdown Linting Configuration
+# ============================================================
+# Used by the CI workflow (ci.yml → lint-markdown job) to
+# enforce consistent formatting across all lesson content.
+#
+# Full rule reference:
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+# ============================================================
+
+default: true   # Enable all rules, then selectively override below
+
+# ── Line Length ───────────────────────────────────────────
+# MD013: Line length
+# Disabled — long URLs and code examples in lessons would
+# create constant false positives. We rely on code review
+# to keep prose lines reasonably short.
+MD013: false
+
+# ── Inline HTML ───────────────────────────────────────────
+# MD033: No inline HTML
+# Disabled — Starlight MDX files use JSX/HTML for components
+# like <SecurityNote>, <ModuleHeader>, and Starlight's own
+# <Card>, <Steps>, <Tabs> components.
+MD033: false
+
+# ── Code Block Style ──────────────────────────────────────
+# MD046: Code block style — enforce fenced blocks (``` style)
+# not indented blocks, for consistency across all modules.
+MD046:
+  style: fenced
+
+# ── Heading Style ─────────────────────────────────────────
+# MD003: Heading style — ATX style only (# Heading)
+# No underline-style headings (====== or ------).
+MD003:
+  style: atx
+
+# ── Duplicate Headings ────────────────────────────────────
+# MD024: Multiple headings with the same content
+# Allow duplicate headings in different sections of the same
+# file (e.g., every module has an "Exercise" and "Summary"
+# heading — these would all be flagged without this override).
+MD024:
+  siblings_only: true
+
+# ── List Item Indentation ─────────────────────────────────
+# MD007: Unordered list indentation — 2 spaces
+MD007:
+  indent: 2
+
+# ── Trailing Punctuation in Headings ──────────────────────
+# MD026: No trailing punctuation in headings
+# Enabled (default) — but allow colons, which are used in
+# headings like "Security Note: Never Commit Secrets"
+MD026:
+  punctuation: ".,;!。，；！"
+
+# ── Blank Lines ───────────────────────────────────────────
+# MD012: Multiple consecutive blank lines — allow max 1
+MD012:
+  maximum: 1
+
+# ── First Line ────────────────────────────────────────────
+# MD041: First line in file should be a top-level heading
+# Disabled — MDX files begin with frontmatter (---), not a heading.
+MD041: false
+
+# ── Hard Tabs ─────────────────────────────────────────────
+# MD010: No hard tabs — use spaces for indentation.
+MD010: true
+
+# ── Ordered List Style ────────────────────────────────────
+# MD029: Ordered list item prefix — use "ordered" style
+# (1. 2. 3.) not "one" style (1. 1. 1.).
+MD029:
+  style: ordered

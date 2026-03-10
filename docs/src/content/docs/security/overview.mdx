@@ -1,0 +1,123 @@
+---
+title: "Security Thread · Overview"
+description: A map of every security concept woven through the course — where it appears, why it matters, and where to go deep.
+---
+
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+
+
+# Security Thread Overview
+
+This course teaches GitHub. It also teaches security — not as a separate topic bolted on at the end, but as a thread woven through every module. Every time you encounter a 🔐 **Security Note**, it connects back to a page in this section.
+
+This overview is your map. It shows you what's covered, which module introduces it, and why it matters for AI projects specifically.
+
+---
+
+## Why Security Is Different for AI Projects
+
+A traditional web app has one main attack surface: the code. An Agent-to-Agent (A2A) system has several:
+
+- **The agents themselves** — each one is a service that accepts inputs. Malicious inputs can manipulate agent behaviour in ways that are hard to detect and reproduce.
+- **The orchestrator** — it routes tasks between agents. A compromised routing table can silently redirect sensitive operations.
+- **The credentials** — agents need API keys to call external services (LLMs, databases, search APIs). These keys are high-value targets.
+- **The pipeline** — the CI/CD system that builds and deploys your agents has elevated permissions. A compromised workflow can exfiltrate secrets or deploy malicious code.
+- **The dependencies** — your agents pull in third-party packages. A compromised package can affect every deployment.
+
+GitHub's security tooling addresses all of these surfaces. The modules in this course show you where the switches are and what flipping them actually does.
+
+---
+
+## The Security Concepts, Mapped to Modules
+
+<CardGrid>
+  <Card title="🔐 Never Commit Secrets" icon="warning">
+    **Introduced in:** Module 00 · Environment Setup
+
+    The most common and most costly mistake in software development.
+    Once a secret is in your git history, it's effectively public — even after deletion.
+
+    [Deep dive →](/security/never-commit-secrets/)
+  </Card>
+
+  <Card title="🔐 Branch Protection Rules" icon="shield">
+    **Introduced in:** Module 02 · Branching & Merging
+
+    Prevent direct pushes to `main`, require pull request reviews, and enforce
+    CI passing before any merge. The access control layer of GitHub.
+
+    [Deep dive →](/security/branch-protection/)
+  </Card>
+
+  <Card title="🔐 Security-Aware Code Review" icon="magnifier">
+    **Introduced in:** Module 03 · Pull Requests & Code Review
+
+    What to look for when reviewing PRs on an AI project — beyond style and logic.
+    Prompt injection paths, hardcoded values, and over-permissioned agents.
+
+    [Deep dive →](/security/code-review/)
+  </Card>
+
+  <Card title="🔐 Secrets in GitHub Actions" icon="setting">
+    **Introduced in:** Module 05 · GitHub Actions & CI/CD
+
+    Encrypted secrets, least-privilege permissions, and why `GITHUB_TOKEN`
+    scopes matter. Your pipeline is part of your attack surface.
+
+    [Deep dive →](/security/actions-secrets/)
+  </Card>
+
+  <Card title="🔐 Dependabot & CodeQL" icon="approve-check-circle">
+    **Introduced in:** Module 06 · Security on GitHub
+
+    Automated vulnerability detection — Dependabot finds known CVEs in your
+    dependencies, CodeQL finds logic flaws in your code.
+
+    [Deep dive →](/security/dependabot-codeql/)
+  </Card>
+
+  <Card title="🔐 Supply Chain Security" icon="list-format">
+    **Introduced in:** Module 06 · Security on GitHub
+
+    Pin GitHub Action SHAs, audit your dependency graph, and understand
+    why the package you install today might not be the one you run tomorrow.
+
+    [Deep dive →](/security/supply-chain/)
+  </Card>
+
+  <Card title="🔐 Release Signing & SBOM" icon="document">
+    **Introduced in:** Module 08 · Packages, Releases & Pages
+
+    Sign your release artifacts with Sigstore, generate a Software Bill of
+    Materials, and give your users a way to verify what they're running.
+
+    [Deep dive →](/security/sbom-attestation/)
+  </Card>
+</CardGrid>
+
+---
+
+## The Concentric Rings Model
+
+Think of GitHub's security features as layered defences — each ring assumes the inner rings can fail:
+
+![Security concentric rings diagram](/images/security/concentric-diagram.jpg)
+
+
+No single layer is sufficient on its own. A `.gitignore` file won't help if your CI pipeline logs secrets to stdout. Branch protection won't help if a compromised GitHub Action has write access to your repository. The rings work together.
+
+---
+
+## How to Use This Section
+
+**If you're working through the course in order:** each Security Thread page is linked from the 🔐 Security Note at the bottom of the relevant module. You don't need to read ahead — the links will bring you here when the concept is introduced.
+
+**If you're an educator or security professional:** you can read the Security Thread pages standalone, in any order. Each page is self-contained and cross-references the relevant module for hands-on exercises.
+
+**If you're looking for something specific:** use the sidebar on the left to jump directly to any concept.
+
+<Aside type="tip" title="Every security concept has an exercise">
+  The deep-dive pages aren't just explanations — each one includes hands-on
+  steps you can apply directly to the A2A project repository. Security is
+  a practice, not a checklist.
+</Aside>

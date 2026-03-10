@@ -1,0 +1,124 @@
+# ============================================================
+# Dependabot Configuration
+# ============================================================
+#
+# MODULE 06 TEACHING REFERENCE — Security on GitHub
+# Dependabot automatically opens Pull Requests to update
+# outdated or vulnerable dependencies in your project.
+#
+# It does two things:
+#   1. Version updates — keeps dependencies current
+#   2. Security alerts — flags known CVEs in your dependencies
+#      (Security tab → Dependabot alerts)
+#
+# How it works:
+#   Dependabot runs on the schedule below, checks each
+#   package ecosystem for updates, and opens a PR if one
+#   is found. You review and merge like any other PR.
+#
+# Full documentation:
+#   https://docs.github.com/en/code-security/dependabot
+# ============================================================
+
+version: 2
+
+updates:
+
+  # ── GitHub Actions ────────────────────────────────────────
+  # Keeps the actions used in our workflows up to date.
+  # SECURITY: Outdated actions can contain unpatched CVEs.
+  # Combined with SHA pinning in our workflows, this ensures
+  # we get security patches while maintaining supply chain safety.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+ 
+    # Limit open PRs to avoid noise — Dependabot can generate
+    # many PRs quickly on busy projects.
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(actions)"
+    # Group all Actions updates into a single PR per week
+    # instead of one PR per action. Much less noise.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # ── Python (pip) ─────────────────────────────────────────
+  # Monitors the Python starter project dependencies.
+  - package-ecosystem: "pip"
+    directory: "/starter-project/python"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+      - "starter-project"
+    commit-message:
+      prefix: "chore(python-deps)"
+    # Group minor and patch updates together.
+    # Major version bumps get their own PR (potentially breaking).
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Node.js (npm) ─────────────────────────────────────────
+  # Monitors the Node.js starter project dependencies.
+  - package-ecosystem: "npm"
+    directory: "/starter-project/nodejs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "nodejs"
+      - "starter-project"
+    commit-message:
+      prefix: "chore(node-deps)"
+    groups:
+      node-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Docker ────────────────────────────────────────────────
+  # Monitors base image versions in the starter project
+  # Dockerfiles (e.g., python:3.12-slim, node:20-alpine).
+  - package-ecosystem: "docker"
+    directory: "/starter-project/python"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/starter-project/nodejs"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"

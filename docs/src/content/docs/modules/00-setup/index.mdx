@@ -1,0 +1,336 @@
+---
+# src/content/docs/modules/00-setup/index.mdx
+# ============================================================
+# Module 00 — Environment Setup
+# ============================================================
+# This is the TEMPLATE module — it demonstrates every component
+# and frontmatter field contributors should use.
+# All other module pages should follow this structure.
+# ============================================================
+
+title: "Module 00 · Environment Setup"
+description: Fork the A2A starter repo, launch a GitHub Codespace, and configure your environment so you never accidentally commit secrets.
+moduleNumber: 0
+duration: "45–60 minutes"
+difficulty: beginner
+hasSecurityNote: true
+securityConcept: "Never Commit Secrets"
+projectStep: "Fork and launch the A2A starter project in a Codespace"
+prerequisites: []
+isCore: false
+
+learningObjectives:
+  - Fork the A2A starter repository using the GitHub web interface
+  - Launch a GitHub Codespace from your forked repository
+  - Explain what a .gitignore file does and why it matters for AI projects
+  - Configure a .env file correctly without committing it to version control
+  - Verify your local environment is working by running the Echo Agent
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={[]}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+Before you write a single line of code or make your first commit, you need a working environment. In this module you'll get everything set up — and you'll do it the right way from the start, which means understanding how to keep secrets out of your repository before you ever have a secret to protect.
+
+GitHub Codespaces eliminates the classic "it works on my machine" problem by giving every learner an identical, cloud-hosted development environment that spins up from any browser. You won't need to install Git, Python, or Node.js locally — the Codespace handles all of it.
+
+<A2AConnection
+  step="Fork and launch the starter project"
+  files={['.env.example', '.gitignore', 'README.md']}
+>
+  The A2A starter project lives at
+  `github.com/fischer3-net/git-github-security-learning` under `starter-project/`.
+  In this module you'll fork it, launch a Codespace, and verify that the
+  Echo Agent — the simplest agent in the system — responds to a test request.
+  Everything else you build in later modules layers on top of this foundation.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### What is a Fork?
+
+A **fork** is a personal copy of someone else's repository that lives under your own GitHub account. Forking is the standard way to contribute to open-source projects:
+
+1. You fork the original repository
+2. You make changes in your fork
+3. You open a Pull Request to propose those changes back to the original
+
+In this course, you'll fork the starter repository so you have your own copy to experiment with freely. If something breaks, you can always start fresh from the original.
+
+<Aside type="note" title="Fork vs. Clone">
+  **Forking** creates a copy on GitHub (server-side). **Cloning** copies a repository to your local machine. You typically fork first, then clone your fork. In this module, we'll use Codespaces instead of cloning — Codespaces handles the clone step automatically inside a cloud environment.
+</Aside>
+
+### What is a GitHub Codespace?
+
+A **Codespace** is a cloud-hosted development environment powered by Visual Studio Code. It runs in your browser (or connects to your local VS Code) and comes pre-configured with everything the repository needs, defined in a `.devcontainer/` folder at the root of the repo.
+
+For this course, the Codespace includes:
+- Git and the GitHub CLI (`gh`)
+- Python 3.12 and Node.js 20
+- The project's dependencies pre-installed
+- Port forwarding so you can test the running A2A agents from your browser
+
+### What is `.gitignore`?
+
+A `.gitignore` file tells Git which files and folders to never track. Any file listed in `.gitignore` will never appear in `git status` and can never be accidentally staged or committed.
+
+For AI projects, this is critical. Your project will eventually contain:
+
+| File type | Why it must be ignored |
+|---|---|
+| `.env` | Contains API keys, database URLs, model endpoints |
+| `*.pem`, `*.key` | Private keys |
+| `__pycache__/` | Python bytecode — not source code |
+| `node_modules/` | Installed npm packages — rebuilt from `package.json` |
+| `*.gguf`, `*.bin` | Local model weight files — too large for Git |
+| `.DS_Store` | macOS folder metadata — irrelevant to others |
+
+The starter project already includes a comprehensive `.gitignore`. Your job in this module is to understand *why* each entry is there.
+
+---
+
+## Exercise
+
+### Part 1 — Fork the Repository
+
+<Steps>
+1. Navigate to `github.com/fischer3-net/git-github-security-learning`
+
+2. Click the **Fork** button in the top-right corner of the page
+
+3. Under **Owner**, select your personal GitHub account (not an organization, unless your instructor told you otherwise)
+
+4. Leave **Repository name** as `git-github-security-learning`
+
+5. Click **Create fork**
+
+   GitHub will redirect you to your fork at `github.com/YOUR-USERNAME/git-github-security-learning`
+</Steps>
+
+<Aside type="tip" title="How to tell you're on your fork">
+  The repo header will show `YOUR-USERNAME / git-github-security-learning` with a small note underneath: *forked from fischer3-net/git-github-security-learning*. If you don't see that note, you're still on the original.
+</Aside>
+
+### Part 2 — Launch a Codespace
+
+<Steps>
+1. From your fork, click the green **Code** button
+
+2. Select the **Codespaces** tab
+
+3. Click **Create codespace on main**
+
+4. Wait for the Codespace to build (typically 1–2 minutes the first time; subsequent launches are faster because the environment is cached)
+
+5. When the VS Code editor loads, open the integrated terminal: `` Ctrl+` `` (Windows/Linux) or `` Cmd+` `` (macOS)
+
+6. Confirm the environment is ready:
+   ```bash
+   git --version
+   python --version
+   node --version
+   gh --version
+   ```
+   All four commands should return version numbers without errors.
+</Steps>
+
+### Part 3 — Explore the `.gitignore`
+
+<Steps>
+1. In the Codespace terminal, navigate to the Python starter project:
+   ```bash
+   cd starter-project/python
+   ```
+
+2. Open the `.gitignore` file:
+   ```bash
+   cat .gitignore
+   ```
+
+3. Find the line that ignores `.env` files. It should look like:
+   ```
+   .env
+   .env.*
+   !.env.example
+   ```
+
+   The `!` prefix on `.env.example` means "ignore all `.env` files *except* `.env.example`." The example file is safe to commit because it contains placeholder variable names — not real values.
+
+4. Look at `.env.example`:
+   ```bash
+   cat .env.example
+   ```
+
+   You should see something like:
+   ```
+   # Copy this file to .env and fill in your values
+   # NEVER commit .env — it is listed in .gitignore
+
+   OPENAI_API_KEY=your-api-key-here
+   ORCHESTRATOR_PORT=8000
+   ECHO_AGENT_PORT=8001
+   SEARCH_AGENT_PORT=8002
+   ```
+</Steps>
+
+### Part 4 — Configure Your Environment
+
+<Steps>
+1. Create your personal `.env` file from the example:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` in the editor and fill in your values. For this module, the `OPENAI_API_KEY` can stay as the placeholder — the Echo Agent doesn't call any external APIs:
+   ```bash
+   code .env
+   ```
+
+3. Verify Git is ignoring your `.env` file:
+   ```bash
+   git status
+   ```
+
+   Your `.env` file should **not** appear in the output. If it does, something is wrong with your `.gitignore` — stop and ask for help before continuing.
+
+4. Double-check with:
+   ```bash
+   git check-ignore -v .env
+   ```
+
+   This command shows *why* a file is being ignored. The output should reference your `.gitignore` file.
+</Steps>
+
+### Part 5 — Run the Echo Agent
+
+<Steps>
+1. Install the Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Start the Echo Agent:
+   ```bash
+   python agents/echo/main.py
+   ```
+
+3. In a second terminal tab (click `+` in the terminal panel), send a test request:
+   ```bash
+   curl -X POST http://localhost:8001/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "hello", "input": "Is this working?"}'
+   ```
+
+4. You should receive a response like:
+   ```json
+   {
+     "agent": "echo",
+     "status": "success",
+     "output": "Echo: Is this working?"
+   }
+   ```
+
+   If you see this — your environment is working correctly. ✅
+</Steps>
+
+---
+
+## Running Locally (Alternative to Codespaces)
+
+If you prefer to work locally rather than in a Codespace, use the appropriate tab for your language:
+
+<Tabs>
+  <TabItem label="Python">
+    ```bash
+    # 1. Clone your fork
+    git clone https://github.com/YOUR-USERNAME/git-github-security-learning.git
+    cd git-github-security-learning/starter-project/python
+
+    # 2. Create a virtual environment
+    python -m venv .venv
+    source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+    # 3. Install dependencies
+    pip install -r requirements.txt
+
+    # 4. Configure environment
+    cp .env.example .env
+    # Edit .env with your values
+
+    # 5. Run the Echo Agent
+    python agents/echo/main.py
+    ```
+  </TabItem>
+  <TabItem label="Node.js">
+    ```bash
+    # 1. Clone your fork
+    git clone https://github.com/YOUR-USERNAME/git-github-security-learning.git
+    cd git-github-security-learning/starter-project/nodejs
+
+    # 2. Install dependencies
+    npm install
+
+    # 3. Configure environment
+    cp .env.example .env
+    # Edit .env with your values
+
+    # 4. Run the Echo Agent
+    node agents/echo/index.js
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+<SecurityNote concept="Never Commit Secrets" module={0} deepDive="never-commit-secrets">
+  API keys, database URLs, and tokens committed to a public GitHub repository
+  are **found within seconds** by automated scanners. Once a secret is in your
+  git history, it's compromised — even if you delete the file in a later commit,
+  the secret remains in the history and can be retrieved with `git log`.
+
+  The `.gitignore` pattern you examined in Part 3 is your first line of defense.
+  GitHub also runs **Secret Scanning** on every push (covered in Module 06) that
+  will alert you if a known API key pattern slips through.
+
+  The golden rule: if you ever accidentally commit a secret, **rotate it immediately**
+  — don't just delete the file and push again. Assume it's already compromised.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- **Forked** the A2A starter repository to your own GitHub account
+- **Launched a Codespace** — a cloud development environment that requires no local setup
+- **Explored the `.gitignore`** file and understood why AI projects need careful ignore patterns
+- **Configured a `.env` file** without committing it to version control
+- **Ran the Echo Agent** and confirmed your environment is ready
+
+The Echo Agent is the foundation everything else builds on. In the next module, you'll initialize the Orchestrator repository, write its README, and make your first meaningful commits.
+
+---
+
+## What's Next
+
+**[Module 01 · Repositories & Commits →](/modules/01-repos-and-commits/)**
+
+You'll initialize the Orchestrator Agent repo, write a meaningful README that describes the full A2A architecture, and learn how to write commit messages that tell the story of your changes.

@@ -1,0 +1,213 @@
+---
+title: "Dependabot & CodeQL"
+description: How GitHub's automated vulnerability detection works — Dependabot finds known CVEs in your dependencies, CodeQL finds logic flaws in your code.
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Dependabot & CodeQL
+
+**Introduced in:** [Module 06 · Security on GitHub](/modules/06-security/)
+
+Manual code review can't catch everything. Two categories of vulnerability are particularly hard to find by eye: known CVEs in your third-party dependencies, and logic flaws in your own code. GitHub provides automated tools for both.
+
+---
+
+## Dependabot: Two Distinct Features
+
+Dependabot is actually two separate systems that happen to share a name. It's worth being precise because they're configured differently and serve different purposes.
+
+### Feature 1: Dependabot Alerts
+
+Dependabot watches your **dependency graph** — the list of packages your project uses, derived from `package-lock.json`, `requirements.txt`, `Pipfile.lock`, etc. It compares this list against the **GitHub Advisory Database**, a curated database of known vulnerabilities (CVEs and GitHub Security Advisories).
+
+When a new vulnerability is published that affects a package you're using, Dependabot:
+
+1. Sends an alert to repository administrators
+2. Shows the affected dependency, the vulnerable version range, and the patched version
+3. (If Dependabot security updates are enabled) Automatically opens a PR to update the dependency to the patched version
+
+**This happens automatically with no configuration** for public repositories. For private repositories, enable it at:
+
+**Settings → Code security → Dependabot alerts → Enable**
+
+### Feature 2: Dependabot Version Updates
+
+This is the configured part — the `dependabot.yml` file. Version updates are *not* about vulnerabilities. They keep your dependencies current by regularly opening PRs to update to the latest version, regardless of whether there's a known security issue.
+
+The A2A project's `dependabot.yml` looks like:
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  # GitHub Actions — keep workflow action versions current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/starter-project/python"
+    schedule:
+      interval: "weekly"
+
+  # Node.js dependencies
+  - package-ecosystem: "npm"
+    directory: "/starter-project/nodejs"
+    schedule:
+      interval: "weekly"
+
+  # Docs site
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+```
+
+<Aside type="tip" title="Why version updates improve security">
+  Staying on current versions means that when a vulnerability is discovered
+  and patched, you're already on the version containing the fix — or one
+  update away, rather than many. The cost of staying current incrementally
+  is much lower than the cost of a large version jump after a vulnerability
+  forces your hand.
+</Aside>
+
+---
+
+## Handling Dependabot PRs
+
+Dependabot PRs are real PRs that go through your normal review process. The key question for each one is: **is this update safe to merge?**
+
+For **patch versions** (e.g., `requests 2.31.0` → `requests 2.31.1`): Almost always safe to merge with a CI check. Patch releases are supposed to be backwards compatible.
+
+For **minor versions** (e.g., `fastapi 0.100.0` → `fastapi 0.101.0`): Check the changelog for deprecations or behaviour changes. Usually safe, but worth a quick read.
+
+For **major versions** (e.g., `pydantic 1.x` → `pydantic 2.x`): Requires careful review. Major versions contain breaking changes. Don't auto-merge these — read the migration guide and test thoroughly.
+
+**Reviewing a Dependabot PR:**
+
+<Steps>
+1. Read the PR description — Dependabot includes the changelog or release notes
+2. Check the CI status — all tests should pass
+3. For security updates, note the vulnerability that's being fixed and its severity (Critical/High/Medium/Low)
+4. Approve and merge, or leave a comment if you need to defer
+</Steps>
+
+**Grouping Dependabot PRs**
+
+Without grouping, Dependabot opens a separate PR for every dependency update — this can flood your pull request queue. The `groups` key in `dependabot.yml` batches related updates:
+
+```yaml
+groups:
+  python-deps:
+    patterns:
+      - "fastapi*"
+      - "pydantic*"
+      - "uvicorn*"
+```
+
+Now Fastapi, Pydantic, and Uvicorn updates are bundled into a single PR per update cycle.
+
+---
+
+## CodeQL: Automated Code Analysis
+
+CodeQL is GitHub's semantic code analysis engine. Unlike a linter (which matches patterns), CodeQL understands the flow of data through your program and can find vulnerabilities that only manifest when specific data paths are executed.
+
+### What CodeQL Finds
+
+CodeQL queries are organised into suites. The A2A project uses the **security-extended** suite, which includes:
+
+| Category | Examples |
+|---------|---------|
+| Injection flaws | SQL injection, command injection, path traversal |
+| Insecure data flow | User input reaching dangerous sinks without sanitisation |
+| Credential exposure | Hard-coded credentials, weak cryptography |
+| Logic errors | Null dereference, incomplete error handling |
+| Resource leaks | Unclosed file handles, unreleased database connections |
+
+### How CodeQL Works
+
+CodeQL converts your source code into a queryable database, then runs a library of queries against it. Each query models a specific vulnerability pattern — for example, "data from an HTTP request parameter flows into an `os.system()` call without sanitisation."
+
+This is more powerful than pattern matching because it understands aliases, function calls, and data transformations:
+
+```python
+def get_user_input():
+    return request.args.get("cmd")  # Source: user input
+
+def run_command(cmd):
+    os.system(cmd)                  # Sink: command execution
+
+def handle():
+    user_cmd = get_user_input()
+    run_command(user_cmd)           # CodeQL traces the path: source → sink
+```
+
+A linter checking for `os.system` would flag every use. CodeQL only flags cases where the argument can be influenced by untrusted input.
+
+### The `codeql.yml` Workflow
+
+The A2A project runs CodeQL on push to `main`, on pull requests to `main`, and on a weekly schedule:
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 1 * * 1'  # Every Monday at 01:30 UTC
+```
+
+The weekly schedule catches newly published queries — CodeQL's query library is updated regularly, and a vulnerability that wasn't detectable last month may be detectable today.
+
+### Reading a CodeQL Alert
+
+When CodeQL finds something, it appears in **Security → Code scanning alerts**. Each alert shows:
+
+- **The rule** — which query triggered, and a link to documentation
+- **The location** — file, line number, and a code snippet
+- **The data flow path** — for data flow vulnerabilities, CodeQL shows the path from source to sink
+- **Severity** — Critical, High, Medium, or Low, based on CVSS scoring
+
+**Triaging a CodeQL alert:**
+
+<Steps>
+1. Read the alert description — understand what vulnerability class it's detecting
+2. Follow the data flow path — trace where the untrusted data comes from and where it ends up
+3. Determine if it's a true positive or false positive
+4. If true positive: fix it and close the alert as "Fixed"
+5. If false positive: dismiss the alert with a reason ("Used in tests only", "Input is validated upstream", etc.)
+</Steps>
+
+<Aside type="note" title="False positives are normal">
+  CodeQL trades precision for recall — it would rather alert on something
+  that turns out to be safe than miss a real vulnerability. Expect some
+  false positives, especially on code that uses dynamic dispatch or
+  unusual patterns. Dismissing with a reason is the correct response —
+  it tells CodeQL not to re-alert on the same finding.
+</Aside>
+
+---
+
+## Enabling Both in the A2A Project
+
+<Steps>
+1. **Dependabot alerts:** Settings → Code security → Dependabot alerts → Enable
+
+2. **Dependabot security updates:** Settings → Code security → Dependabot security updates → Enable (this auto-opens PRs for vulnerable dependencies)
+
+3. **Dependabot version updates:** Commit the `dependabot.yml` file shown above to `.github/dependabot.yml`
+
+4. **CodeQL:** The `codeql.yml` workflow in `.github/workflows/` handles this automatically on push and PR. Verify it's running: Actions → CodeQL → check for recent runs
+
+5. **View results:** Security tab → Code scanning alerts and Dependabot alerts
+</Steps>
+
+Together, these two tools give you continuous automated coverage for the two most common sources of vulnerabilities in a production system — your dependencies and your own code.

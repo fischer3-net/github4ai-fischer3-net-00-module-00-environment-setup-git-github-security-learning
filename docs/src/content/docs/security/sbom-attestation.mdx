@@ -1,0 +1,219 @@
+---
+title: "Release Signing & SBOM"
+description: Sign release artifacts with Sigstore, generate a Software Bill of Materials, and give your users a verifiable chain of custody from source code to deployed image.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Release Signing & SBOM
+
+**Introduced in:** [Module 08 · Packages, Releases & Pages](/modules/08-packages-and-releases/)
+
+When you publish a release, your users are trusting that what you shipped is what you built from the source code they can read. Release signing and Software Bill of Materials (SBOM) generation give them the tools to verify that trust, rather than just extend it.
+
+---
+
+## The Problem: How Do You Know What You're Running?
+
+When a user pulls a Docker image from a registry, they're trusting:
+
+1. That the registry served them the right image
+2. That the image was built from the source code they reviewed
+3. That the build process wasn't tampered with
+4. That the dependencies bundled in the image are what they appear to be
+
+Without signing and provenance, none of these can be verified. A compromised registry, a compromised build pipeline, or a supply chain attack on a dependency could all result in a user running something different from what was intended — with no way to detect it.
+
+**Sigstore and SBOM address different parts of this:**
+
+- **Sigstore/artifact attestation** — proves *who built what and when* (provenance)
+- **SBOM** — proves *what's inside* (composition)
+
+Together they give a complete picture of a release artifact's chain of custody.
+
+---
+
+## Software Bill of Materials (SBOM)
+
+An SBOM is a machine-readable inventory of every component in a software artifact — every library, package, and dependency, with their versions, licences, and source locations.
+
+Think of it like an ingredients list for software. Just as food labelling lets consumers make informed choices and enables rapid response when an ingredient is recalled, an SBOM lets users understand what's in software they're running and respond quickly when a component is found to be vulnerable.
+
+### SBOM Formats
+
+Two formats dominate:
+
+**SPDX (Software Package Data Exchange)** — an ISO standard maintained by the Linux Foundation. Widely supported, output as JSON, YAML, or tag-value format.
+
+**CycloneDX** — a format maintained by OWASP, with strong tooling support in the Java and .NET ecosystems.
+
+The A2A project generates SPDX-JSON SBOMs using the Anchore `sbom-action`.
+
+### What an SBOM Looks Like
+
+```json
+{
+  "spdxVersion": "SPDX-2.3",
+  "name": "github-for-ai-builders",
+  "packages": [
+    {
+      "name": "fastapi",
+      "versionInfo": "0.104.1",
+      "licenseConcluded": "MIT",
+      "downloadLocation": "https://pypi.org/project/fastapi/0.104.1/",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceType": "cpe23Type",
+          "referenceLocator": "cpe:2.3:a:tiangolo:fastapi:0.104.1:*:*:*:*:*:*:*"
+        }
+      ]
+    }
+    // ... all other dependencies
+  ]
+}
+```
+
+Each package entry includes enough information to:
+- Identify exactly which version is present
+- Look up the licence for compliance purposes
+- Match against vulnerability databases using the CPE or PURL identifier
+- Verify the download location
+
+### The `generate-sbom` Job in `release.yml`
+
+```yaml
+generate-sbom:
+  name: Generate SBOM
+  runs-on: ubuntu-latest
+  needs: build-and-push
+
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751  # v0.16.0
+      with:
+        format: spdx-json
+        output-file: sbom.spdx.json
+        artifact-name: sbom.spdx.json
+
+    - name: Upload SBOM to release
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+```
+
+The SBOM is uploaded as a release artifact — it appears alongside the Docker images on the GitHub Release page, where users can download and inspect it.
+
+---
+
+## Artifact Attestation with Sigstore
+
+Sigstore is an open-source project (backed by Google, Red Hat, and Purdue University) that provides free, transparent code signing infrastructure. GitHub's artifact attestation feature is built on Sigstore.
+
+### What Attestation Proves
+
+An attestation is a signed statement that says:
+
+> "The artifact with digest `sha256:abc123...` was built by the GitHub Actions workflow at `github.com/org/repo/.github/workflows/release.yml`, triggered by commit `def456...`, at time `2025-03-01T12:00:00Z`."
+
+This statement is:
+- **Signed** with a key tied to the GitHub Actions OIDC token (so it can only be created during a real workflow run in your repository)
+- **Recorded** in Sigstore's public transparency log (Rekor), so it can be independently verified
+- **Immutable** — once recorded, it can't be altered
+
+### The `attest` Job in `release.yml`
+
+```yaml
+attest:
+  name: Attest Build Provenance
+  runs-on: ubuntu-latest
+  needs: build-and-push
+  permissions:
+    id-token: write      # Required to get OIDC token
+    attestations: write  # Required to write attestation
+
+  steps:
+    - name: Attest Python image
+      uses: actions/attest-build-provenance@210c1913531870065f03ce1f9440dd87bc0938cd  # v2.0.0
+      with:
+        subject-name: ghcr.io/${{ github.repository }}/orchestrator-python
+        subject-digest: ${{ needs.build-and-push.outputs.python-digest }}
+        push-to-registry: true
+```
+
+The `id-token: write` permission is what makes this secure — it allows the workflow to request an OIDC token from GitHub's identity provider, which Sigstore uses to verify the workflow's identity. Only a genuine GitHub Actions run in your repository can obtain this token.
+
+### Verifying an Attestation
+
+Users who pull your image can verify the attestation using the GitHub CLI:
+
+```bash
+# Verify the attestation for a specific image digest
+gh attestation verify \
+  oci://ghcr.io/fischer3-net/git-github-security-learning/orchestrator-python:v1.0.0 \
+  --repo fischer3-net/git-github-security-learning
+```
+
+Output if valid:
+```
+Loaded digest sha256:abc123... for oci://ghcr.io/...
+✓ Verification succeeded!
+
+The following checks passed:
+  - ✓ Attestation is signed by GitHub Actions
+  - ✓ Workflow is in the expected repository
+  - ✓ Workflow ran on the expected ref (refs/tags/v1.0.0)
+```
+
+This gives the user confidence that the image they're running was built from the source code in your repository, by your CI pipeline, not by an attacker who compromised the registry.
+
+---
+
+## Why This Matters for an AI Project
+
+For an A2A system, the stakes around artifact integrity are higher than for a typical web application:
+
+- **Agent behaviour is determined by code** — a tampered orchestrator could silently redirect tasks, exfiltrate conversation history, or manipulate agent outputs
+- **Agents often have elevated permissions** — they may have API keys, database access, or the ability to call external services
+- **AI outputs are hard to audit** — a malicious agent might behave normally most of the time but trigger adversarially on specific inputs
+
+Attestation gives operators deploying your agents a way to verify they're running exactly what you published. In regulated environments (healthcare, finance, government), this kind of verifiable provenance is increasingly a compliance requirement.
+
+---
+
+## Putting It Together: The Release Pipeline
+
+The A2A project's `release.yml` runs four jobs in sequence:
+
+```
+git push v1.0.0
+       │
+       ▼
+┌─────────────────┐
+│  build-and-push │  Builds Docker images, pushes to ghcr.io
+│                 │  Outputs: image digests for attestation
+└────────┬────────┘
+         │
+  ┌──────┴──────────────────┐
+  │                         │  (parallel)
+  ▼                         ▼
+attest               generate-sbom
+Sign digests         Generate SPDX-JSON SBOM
+with Sigstore        from repository contents
+  │                         │
+  └──────┬──────────────────┘
+         │
+         ▼
+  create-release
+  GitHub Release with auto-generated notes,
+  SBOM attached, attestation verification
+  commands included in release body
+```
+
+Each job builds on the previous one's outputs — the attest job needs the image digests from build-and-push, and the release job needs everything to complete before it creates the release.
+
+Reading through `release.yml` with Module 08 gives you a complete picture of how these pieces fit together in practice.

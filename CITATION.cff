@@ -1,0 +1,60 @@
+cff-version: 1.2.0
+
+title: "GitHub for AI Builders: Learn GitHub from Zero to Mid-Level Proficiency Through Agent-to-Agent AI Projects"
+
+message: >-
+  If you use this course in your teaching, research, or organization,
+  please cite it using the metadata in this file.
+
+type: software
+
+license: MIT
+
+repository-code: "https://github.com/fischer3-net/git-github-security-learning"
+
+url: "https://github.com/fischer3-net/git-github-security-learning"
+
+abstract: >-
+  An open-source GitHub course for developers and educators that teaches
+  GitHub concepts from beginner to mid-level proficiency using an
+  Agent-to-Agent (A2A) AI system as the pedagogical vehicle. Security
+  practices applicable to AI development are woven throughout each module.
+  Released under the MIT License for free use by GitHub educators worldwide.
+
+keywords:
+  - github
+  - git
+  - education
+  - open-source
+  - agent-to-agent
+  - artificial intelligence
+  - devops
+  - ci-cd
+  - github-actions
+  - security
+  - open-source-education
+  - github-education
+
+authors:
+  - name: "GitHub for AI Builders Contributors"
+    website: "https://github.com/fischer3-net/git-github-security-learning/graphs/contributors"
+
+# Add individual authors below as the project grows, e.g.:
+# - given-names: "Jane"
+#   family-names: "Doe"
+#   orcid: "https://orcid.org/0000-0000-0000-0000"
+#   affiliation: "Example University"
+
+version: "1.0.0"
+
+date-released: "2025-01-01"  # Update on first stable release
+
+# Preferred citation format for academic papers:
+preferred-citation:
+  type: software
+  title: "GitHub for AI Builders"
+  authors:
+    - name: "GitHub for AI Builders Contributors"
+  url: "https://github.com/fischer3-net/git-github-security-learning"
+  license: MIT
+  year: 2025

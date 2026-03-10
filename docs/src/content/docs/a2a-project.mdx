@@ -1,0 +1,178 @@
+---
+title: The A2A Starter Project
+description: An overview of the Agent-to-Agent (A2A) system you build throughout this course — its architecture, components, and how each module adds to it.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+The **Agent-to-Agent (A2A) starter project** is the real system you build across all nine modules of this course. Every GitHub concept — commits, branches, pull requests, CI pipelines, security scanning, releases — is introduced at the moment it solves a real problem in the project.
+
+By the time you complete the Capstone, you'll have a working, tested, and deployed multi-agent AI system that you built and shipped using professional GitHub workflows.
+
+---
+
+## What Is the A2A System?
+
+The A2A system is a lightweight multi-agent architecture. A central **Orchestrator** receives task requests from a client and routes them to the right **Specialist Agent** based on a `task` keyword. Each Specialist Agent handles one class of task and returns a structured response.
+
+```
+Client
+  │
+  ▼
+Orchestrator  (/run)
+  │
+  ├── task: "echo"    →  Echo Agent    (/run)
+  ├── task: "search"  →  Search Agent  (/run)
+  ├── task: "calculate" → Calculate Agent (/run)
+  └── task: "..."     →  Your Agent    (/run)
+```
+
+Every agent — including the Orchestrator — speaks the same message schema, so adding a new Specialist Agent never requires changes to the core routing logic.
+
+---
+
+## Components
+
+<CardGrid>
+  <Card title="Orchestrator" icon="random">
+    The entry point for all requests. Maintains an agent registry mapping task
+    keywords to agent URLs, forwards requests, and returns responses. Runs on
+    port **8000** (Python) or **9000** (Node.js).
+  </Card>
+  <Card title="Echo Agent" icon="comment">
+    The simplest possible agent — it echoes its input back prefixed with
+    `"Echo: "`. Introduced in **Module 00** to verify your environment is
+    working. Runs on port **8001**.
+  </Card>
+  <Card title="Search Agent" icon="magnifier">
+    Returns mock documentation results for queries about GitHub concepts.
+    Added in **Module 02** via a feature branch to practice branching and
+    merging. Runs on port **8002**.
+  </Card>
+  <Card title="Calculate Agent" icon="pencil">
+    Evaluates mathematical expressions safely using AST parsing — never `eval()`.
+    Contributed in **Module 07** to practice the open-source collaboration
+    workflow. Runs on port **8003**.
+  </Card>
+</CardGrid>
+
+---
+
+## The Message Schema
+
+All agents share a single request/response schema defined in
+`starter-project/schema/a2a-message.schema.json`. This schema is validated
+in CI on every pull request.
+
+**Request** (Orchestrator → Specialist Agent):
+
+```json
+{
+  "task": "search",
+  "input": "What is a pull request?",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response** (Specialist Agent → Orchestrator → Client):
+
+```json
+{
+  "agent": "search",
+  "status": "success",
+  "output": "A pull request is a proposal to merge...",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+The `status` field is always either `"success"` or `"error"`. Agents must
+never propagate unhandled exceptions — every failure path returns a structured
+`AgentResponse.error()`.
+
+<Aside type="tip" title="Schema validation in CI">
+  The `ci.yml` workflow validates every agent's responses against this schema
+  automatically. If you add a new agent in the Capstone and its response
+  doesn't conform, CI will catch it before your PR can be merged.
+</Aside>
+
+---
+
+## Project Structure
+
+The starter project ships in two variants — Python and Node.js — so you can
+work in whichever runtime you prefer. Both implement the same A2A schema and
+pass the same integration tests.
+
+```
+starter-project/
+├── python/
+│   ├── agents/
+│   │   ├── echo/main.py
+│   │   ├── search/main.py
+│   │   └── calculate/main.py
+│   ├── orchestrator/main.py
+│   ├── models.py                  ← Shared Pydantic models
+│   └── tests/
+│       ├── unit/
+│       └── integration/
+├── nodejs/
+│   ├── agents/
+│   │   ├── echo/index.js
+│   │   ├── search/index.js
+│   │   └── calculate/index.js
+│   ├── orchestrator/index.js
+│   └── tests/
+│       ├── unit/
+│       └── integration/
+└── schema/
+    └── a2a-message.schema.json    ← Shared across both variants
+```
+
+---
+
+## How the Project Grows Through the Course
+
+Each module introduces a GitHub concept and a corresponding change to the
+A2A project. By the end of the course you will have used every GitHub workflow
+to ship a real feature.
+
+| Module | GitHub Concept | A2A Project Step |
+|--------|---------------|-----------------|
+| 00 | Codespaces, `.gitignore` | Fork the repo, run the Echo Agent |
+| 01 | Commits, README | Initialize the Orchestrator repo |
+| 02 | Branching & merging | Add the Search Agent on a feature branch |
+| 03 | Pull Requests | Open a PR for the Search Agent, complete review |
+| 04 | Issues & Projects | Track the Calculate Agent with an Issue |
+| 05 | GitHub Actions | Build the CI pipeline for the full A2A stack |
+| 06 | Security | Enable Dependabot, CodeQL, Secret Scanning |
+| 07 | Collaboration | Contribute the Calculate Agent via fork workflow |
+| 08 | Releases & Pages | Tag v1.0.0, publish a Docker image, deploy docs |
+| 09 | Capstone | Design and ship your own Specialist Agent |
+
+---
+
+## Running the Project Locally
+
+See **[Module 00 · Environment Setup](/modules/00-setup/)** for full instructions.
+The short version, from `starter-project/python/`:
+
+```bash
+# Terminal 1 — Echo Agent
+python agents/echo/main.py
+
+# Terminal 2 — Search Agent
+python agents/search/main.py
+
+# Terminal 3 — Orchestrator
+python orchestrator/main.py
+
+# Terminal 4 — Integration tests
+ORCHESTRATOR_URL=http://localhost:8000 pytest tests/integration/ -v
+```
+
+For Node.js, from `starter-project/nodejs/`:
+
+```bash
+npm run start:all
+ORCHESTRATOR_URL=http://localhost:9000 npm run test:integration
+```
