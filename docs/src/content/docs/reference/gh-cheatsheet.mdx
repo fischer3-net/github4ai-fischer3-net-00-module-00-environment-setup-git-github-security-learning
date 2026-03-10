@@ -1,0 +1,461 @@
+---
+title: GitHub CLI Cheatsheet
+description: A quick reference for the gh CLI commands used throughout GitHub for AI Builders, organised by task.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `gh` CLI is GitHub's official command-line tool. It wraps the GitHub API and
+lets you do everything the browser can do from your terminal — create issues, open
+PRs, check CI status, manage releases, and more. It's introduced in **Module 07**
+and used throughout the rest of the course.
+
+<Aside type="tip" title="gh is pre-installed in Codespaces">
+  If you're working in a GitHub Codespace, `gh` is already authenticated and
+  ready to use. For local setup, run `gh auth login` and follow the prompts.
+</Aside>
+
+---
+
+## Authentication
+
+```bash
+# Authenticate with GitHub (interactive — opens browser)
+gh auth login
+
+# Authenticate using a token (for CI or scripted use)
+gh auth login --with-token < token.txt
+
+# Check current authentication status
+gh auth status
+
+# Log out
+gh auth logout
+
+# Refresh auth token (if permissions have changed)
+gh auth refresh --scopes repo,read:packages
+```
+
+---
+
+## Repositories
+
+```bash
+# Clone a repository
+gh repo clone owner/repo
+
+# Fork a repo and clone it locally in one step
+gh repo fork owner/repo --clone --remote
+
+# Sync your fork with upstream
+gh repo sync                                      # syncs current repo's fork
+gh repo sync YOUR-USERNAME/repo \
+  --source fischer3-net/git-github-security-learning      # explicit source
+
+# View repository info
+gh repo view
+gh repo view owner/repo
+
+# Open the repository in your browser
+gh repo view --web
+gh repo view owner/repo --web
+
+# List your repositories
+gh repo list
+gh repo list --limit 20 --language python
+
+# Create a new repository
+gh repo create my-new-repo --public
+gh repo create my-new-repo --private --clone
+```
+
+---
+
+## Issues
+
+```bash
+# List open issues
+gh issue list
+
+# Filter by label, assignee, or search term
+gh issue list --label "feat"
+gh issue list --assignee "@me"
+gh issue list --search "Calculate Agent"
+gh issue list --label "feat" --label "starter-project"
+
+# View a specific issue
+gh issue view 42
+gh issue view 42 --web                            # open in browser
+
+# Create an issue interactively
+gh issue create
+
+# Create an issue with flags
+gh issue create \
+  --title "feat: implement Calculate Agent" \
+  --body "Implementation of the Calculate Specialist Agent." \
+  --label "feat,starter-project"
+
+# Edit an issue
+gh issue edit 42 --title "Updated title"
+gh issue edit 42 --add-label "in-progress"
+gh issue edit 42 --add-assignee "@me"
+gh issue edit 42 --remove-label "needs-triage"
+
+# Close and reopen
+gh issue close 42
+gh issue close 42 --comment "Fixed in PR #17"
+gh issue reopen 42
+
+# Output as JSON (useful for scripting)
+gh issue list --search "Calculate" --json number,title
+gh issue list --search "Calculate" --json number --jq '.[0].number'
+```
+
+---
+
+## Pull Requests
+
+```bash
+# List open PRs
+gh pr list
+gh pr list --label "feat"
+gh pr list --assignee "@me"
+gh pr list --state merged
+
+# View a PR
+gh pr view 17
+gh pr view 17 --web                               # open in browser
+
+# Create a PR interactively
+gh pr create
+
+# Create a PR with flags
+gh pr create \
+  --title "feat(calculate-agent): implement safe arithmetic evaluator" \
+  --body "Implements the Calculate Agent using AST-based parsing. Closes #42." \
+  --label "feat,starter-project"
+
+# Create a draft PR
+gh pr create --draft \
+  --title "WIP: calculate agent" \
+  --body "Work in progress — not ready for review."
+
+# Mark a draft PR as ready for review
+gh pr ready
+gh pr ready 17
+
+# Check out a PR's branch locally (works with forks too)
+gh pr checkout 17
+
+# Check CI status on the current PR
+gh pr checks
+gh pr checks 17
+
+# Review a PR
+gh pr review 17 --approve
+gh pr review 17 --approve --body "Tested locally — LGTM."
+gh pr review 17 --request-changes \
+  --body "The division by zero case returns a 500. Return AgentResponse.error() instead."
+gh pr review 17 --comment --body "Left a question inline."
+
+# Merge a PR
+gh pr merge 17                                    # interactive
+gh pr merge 17 --merge                            # merge commit
+gh pr merge 17 --squash                           # squash and merge
+gh pr merge 17 --rebase                           # rebase and merge
+gh pr merge 17 --squash --delete-branch           # merge and clean up branch
+
+# Edit a PR
+gh pr edit 17 --title "Updated title"
+gh pr edit 17 --add-label "needs-review"
+gh pr edit 17 --add-reviewer username
+
+# Close a PR without merging
+gh pr close 17
+
+# Diff a PR
+gh pr diff 17
+```
+
+---
+
+## CI / Workflows
+
+```bash
+# List all workflows in the repository
+gh workflow list
+
+# View a specific workflow
+gh workflow view ci.yml
+
+# Trigger a workflow manually (requires workflow_dispatch trigger)
+gh workflow run ci.yml
+gh workflow run ci.yml --ref main
+gh workflow run ci.yml --field target=python
+
+# List recent workflow runs
+gh run list
+gh run list --workflow=ci.yml
+gh run list --workflow=ci.yml --limit 5
+gh run list --status failure
+
+# View a specific run
+gh run view
+gh run view <run-id>
+gh run view <run-id> --web                        # open in browser
+
+# Watch a run live in the terminal
+gh run watch
+gh run watch <run-id>
+
+# View logs for a run
+gh run view <run-id> --log
+gh run view <run-id> --log-failed                 # only failed steps
+
+# Download artifacts from a run
+gh run download <run-id>
+gh run download <run-id> --name test-results
+
+# Re-run a failed run
+gh run rerun <run-id>
+gh run rerun <run-id> --failed-only               # only re-run failed jobs
+```
+
+---
+
+## Releases
+
+```bash
+# List releases
+gh release list
+
+# View a release
+gh release view v1.0.0
+gh release view v1.0.0 --web                      # open in browser
+
+# Create a release manually (the release.yml workflow does this automatically)
+gh release create v1.0.0 \
+  --title "v1.0.0" \
+  --generate-notes \
+  --latest
+
+# Create a pre-release
+gh release create v1.1.0-beta.1 \
+  --prerelease \
+  --title "v1.1.0 Beta 1" \
+  --generate-notes
+
+# Upload an artifact to an existing release
+gh release upload v1.0.0 sbom.spdx.json
+
+# Download release artifacts
+gh release download v1.0.0
+gh release download v1.0.0 --pattern "*.json"
+
+# Delete a release (does not delete the underlying tag)
+gh release delete v1.0.0
+```
+
+---
+
+## Attestation
+
+Used in Module 08 to verify that a container image was built by the
+repository's CI pipeline and hasn't been tampered with.
+
+```bash
+# Verify a container image's provenance
+gh attestation verify \
+  oci://ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:v1.0.0 \
+  --repo YOUR-USERNAME/git-github-security-learning
+
+# Verify against a specific workflow
+gh attestation verify \
+  oci://ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:v1.0.0 \
+  --repo YOUR-USERNAME/git-github-security-learning \
+  --signer-workflow .github/workflows/release.yml
+
+# Download the attestation bundle for offline inspection
+gh attestation download \
+  oci://ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:v1.0.0 \
+  --repo YOUR-USERNAME/git-github-security-learning
+```
+
+A successful verification output looks like:
+
+```text
+Loaded digest sha256:abc123... for oci://ghcr.io/...
+Attestation verified for digest sha256:abc123...
+
+The following policy criteria were satisfied:
+✓ OIDC Issuer matches expected issuer
+✓ Source Repository URI matches
+✓ Source Repository Ref matches refs/tags/v1.0.0
+✓ Runner Environment matches GitHub-hosted runner
+```
+
+---
+
+## Codespaces
+
+```bash
+# Create a Codespace for the current repo
+gh codespace create
+
+# Create a Codespace for a specific repo
+gh codespace create --repo YOUR-USERNAME/git-github-security-learning
+
+# List your Codespaces
+gh codespace list
+
+# SSH into a running Codespace
+gh codespace ssh
+
+# Open a Codespace in VS Code
+gh codespace code
+
+# Stop a Codespace
+gh codespace stop
+
+# Delete a Codespace
+gh codespace delete
+```
+
+---
+
+## Secrets
+
+Used when configuring GitHub Actions secrets (Module 05 and 06).
+
+```bash
+# List repository secrets (names only — values are never shown)
+gh secret list
+
+# Set a repository secret
+gh secret set MY_API_KEY
+
+# Set a secret from a file
+gh secret set MY_API_KEY < key.txt
+
+# Set a secret with a value inline (avoid — shell history)
+gh secret set MY_API_KEY --body "value"
+
+# Delete a secret
+gh secret delete MY_API_KEY
+```
+
+<Aside type="caution" title="Avoid inline secret values">
+  Passing secret values inline with `--body` writes them to your shell
+  history. Prefer `gh secret set SECRET_NAME` (interactive prompt) or
+  piping from a file. Never commit secret values to the repository.
+</Aside>
+
+---
+
+## GitHub API (Advanced)
+
+`gh api` gives direct access to the GitHub REST API — useful for scripting
+and automation not covered by other `gh` commands.
+
+```bash
+# Get repository information
+gh api repos/owner/repo
+
+# List packages for a user (used in Module 08)
+gh api /users/YOUR-USERNAME/packages/container \
+  --jq '.[].name'
+
+# Create an issue via the API
+gh api repos/owner/repo/issues \
+  --method POST \
+  --field title="My issue" \
+  --field body="Issue body"
+
+# Use jq to extract specific fields
+gh api repos/owner/repo/releases \
+  --jq '.[0].tag_name'
+```
+
+---
+
+## Useful Patterns
+
+### Open the current PR in the browser
+
+```bash
+gh pr view --web
+```
+
+### Check CI before requesting review
+
+```bash
+gh pr checks
+```
+
+### Sync fork and update your branch
+
+```bash
+# Sync fork's main with upstream
+gh repo sync
+
+# Then rebase your branch
+git fetch origin
+git rebase origin/main
+git push --force-with-lease
+```
+
+### Create an issue and immediately assign it to yourself
+
+```bash
+gh issue create \
+  --title "feat: implement Calculate Agent" \
+  --label "feat" | xargs gh issue edit --add-assignee "@me"
+
+# Or in two steps:
+gh issue create --title "..." --label "feat"
+gh issue edit <number> --add-assignee "@me"
+```
+
+### Watch a triggered workflow run until it finishes
+
+```bash
+gh workflow run ci.yml && gh run watch
+```
+
+---
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Auth status | `gh auth status` |
+| Clone a repo | `gh repo clone owner/repo` |
+| Fork and clone | `gh repo fork owner/repo --clone --remote` |
+| Sync fork | `gh repo sync` |
+| List issues | `gh issue list` |
+| Create issue | `gh issue create` |
+| List PRs | `gh pr list` |
+| Create PR | `gh pr create` |
+| Create draft PR | `gh pr create --draft` |
+| Check out a PR | `gh pr checkout 17` |
+| Check PR CI | `gh pr checks` |
+| Approve a PR | `gh pr review 17 --approve` |
+| Merge a PR | `gh pr merge 17 --squash --delete-branch` |
+| Trigger workflow | `gh workflow run ci.yml` |
+| Watch run live | `gh run watch` |
+| View run failures | `gh run view --log-failed` |
+| List releases | `gh release list` |
+| View release | `gh release view v1.0.0` |
+| Verify attestation | `gh attestation verify oci://ghcr.io/...` |
+| List secrets | `gh secret list` |
+| Set a secret | `gh secret set SECRET_NAME` |
+| Open in browser | `gh <command> --web` |
+
+---
+
+## Related
+
+- [Git Command Cheatsheet](/reference/git-cheatsheet/) — local Git operations that complement the `gh` CLI
+- [Module 07 · Collaboration at Scale](/modules/07-collaboration/) — where `gh` is introduced and used throughout
+- [Module 08 · Packages, Releases & Pages](/modules/08-packages-and-releases/) — `gh release`, `gh run`, and `gh attestation`

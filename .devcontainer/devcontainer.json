@@ -1,0 +1,180 @@
+// .devcontainer/devcontainer.json
+// ============================================================
+// GitHub Codespace / Dev Container Configuration
+// ============================================================
+// This file defines the development environment that GitHub
+// Codespaces uses when a learner clicks "Create codespace on main".
+//
+// MODULE 00 DEPENDENCY: Module 00 tells learners to launch a
+// Codespace and run specific commands. This config ensures
+// every learner gets an identical environment regardless of
+// their local machine, OS, or prior setup.
+//
+// The image includes Python 3.12, Node.js 20, and the GitHub
+// CLI pre-installed. Post-create commands install both starter
+// project dependency sets automatically.
+//
+// Full devcontainer spec:
+// https://containers.dev/implementors/json_reference/
+// ============================================================
+{
+  "name": "GitHub for AI Builders",
+
+  // Use Microsoft's universal devcontainer image — includes
+  // Python, Node.js, Git, GitHub CLI, and common tools.
+  // Pinned to a specific digest for reproducibility.
+  "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
+
+  // ── Features ────────────────────────────────────────────
+  // Features layer additional tools onto the base image.
+  "features": {
+    // GitHub CLI — taught in Module 07, but available throughout
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    // Docker-in-Docker — needed for Module 08 (building container images)
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "dockerDashComposeVersion": "v2"
+    },
+    // Python — pin to 3.12 to match the CI matrix
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12",
+      "installTools": true
+    },
+    // Node.js — pin to 20 (LTS) to match the CI matrix
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20",
+      "nodeGypDependencies": true
+    }
+  },
+
+  // ── VS Code Settings ────────────────────────────────────
+  // Applied when the Codespace opens in the browser or
+  // in a connected local VS Code instance.
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Editor
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.rulers": [88],   // PEP8 line length indicator for Python
+        "editor.wordWrap": "off",
+
+        // Python
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        },
+
+        // JavaScript / Node.js
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+
+        // Markdown / MDX
+        "[markdown]": {
+          "editor.wordWrap": "on",
+          "editor.quickSuggestions": false
+        },
+        "[mdx]": {
+          "editor.wordWrap": "on"
+        },
+
+        // YAML
+        "[yaml]": {
+          "editor.defaultFormatter": "redhat.vscode-yaml"
+        },
+
+        // Git
+        "git.autofetch": true,
+        "git.confirmSync": false,
+
+        // Terminal
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+
+      // Extensions auto-installed in every Codespace
+      "extensions": [
+        // Python
+        "charliermarsh.ruff",           // Ruff linter/formatter (replaces pylint, black)
+        "ms-python.python",             // Python language support
+
+        // JavaScript / Node.js
+        "esbenp.prettier-vscode",       // Prettier formatter
+        "dbaeumer.vscode-eslint",       // ESLint
+
+        // Astro / Starlight (for contributors working on docs)
+        "astro-build.astro-vscode",     // Astro language support
+
+        // Markdown
+        "DavidAnson.vscode-markdownlint",  // Markdownlint (matches CI config)
+        "yzhang.markdown-all-in-one",      // Markdown preview and shortcuts
+
+        // YAML
+        "redhat.vscode-yaml",           // YAML schema validation
+
+        // GitHub
+        "GitHub.vscode-github-actions", // Workflow file IntelliSense
+        "GitHub.copilot",               // Copilot (optional, used in Module 10 roadmap)
+        "github.vscode-pull-request-github",  // PR management in editor
+
+        // Git
+        "eamodio.gitlens",              // Git history and blame views
+
+        // Docker (Module 08)
+        "ms-azuretools.vscode-docker",  // Docker file support
+
+        // Utilities
+        "EditorConfig.EditorConfig",    // .editorconfig support
+        "ms-vscode.hexeditor",          // For inspecting binary schema fixtures
+        "christian-kohler.path-intellisense"  // Path autocomplete
+      ]
+    }
+  },
+
+  // ── Post-Create Commands ─────────────────────────────────
+  // Runs once after the container is first created.
+  // Installs all project dependencies so the Codespace is
+  // immediately usable without manual setup steps.
+  "postCreateCommand": {
+    "python-deps": "cd starter-project/python && pip install -r requirements.txt -r requirements-dev.txt",
+    "node-deps": "cd starter-project/nodejs && npm install",
+    "docs-deps": "cd docs && npm install",
+    "git-config": "git config --global push.autoSetupRemote true"
+  },
+
+  // ── Post-Start Command ───────────────────────────────────
+  // Runs every time the Codespace starts (not just first create).
+  // Shows a welcome message pointing to Module 00.
+  "postStartCommand": "echo '\n🤖 GitHub for AI Builders Codespace ready!\n👉 Start with: cat modules/00-setup/README.md\n'",
+
+  // ── Port Forwarding ──────────────────────────────────────
+  // Automatically forward the ports used by the A2A system
+  // so learners can test agents from the browser without
+  // manually configuring port forwarding.
+  "forwardPorts": [
+    8000,   // Orchestrator (Python)
+    8001,   // Echo Agent (Python)
+    8002,   // Search Agent (Python)
+    9000,   // Orchestrator (Node.js)
+    9001,   // Echo Agent (Node.js)
+    9002,   // Search Agent (Node.js)
+    4321    // Astro dev server (for docs contributors)
+  ],
+
+  "portsAttributes": {
+    "8000": { "label": "Orchestrator (Python)", "onAutoForward": "notify" },
+    "8001": { "label": "Echo Agent (Python)",   "onAutoForward": "silent" },
+    "8002": { "label": "Search Agent (Python)", "onAutoForward": "silent" },
+    "9000": { "label": "Orchestrator (Node.js)","onAutoForward": "notify" },
+    "9001": { "label": "Echo Agent (Node.js)",  "onAutoForward": "silent" },
+    "9002": { "label": "Search Agent (Node.js)","onAutoForward": "silent" },
+    "4321": { "label": "Docs (Astro dev)",      "onAutoForward": "openBrowser" }
+  },
+
+  // ── Remote User ──────────────────────────────────────────
+  "remoteUser": "codespace"
+}

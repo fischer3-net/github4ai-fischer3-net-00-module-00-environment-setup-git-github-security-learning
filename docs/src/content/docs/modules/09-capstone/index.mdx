@@ -1,0 +1,561 @@
+---
+# src/content/docs/modules/09-capstone/index.mdx
+
+title: "Module 09 · Capstone Project"
+description: Design and contribute a new Specialist Agent end-to-end — from opening the proposal Discussion to a merged PR, a new tagged release, and a deployed docs update. Every GitHub skill from Modules 00–08 comes together in one contribution you own completely.
+moduleNumber: 9
+duration: "180–240 minutes"
+difficulty: intermediate
+hasSecurityNote: true
+securityConcept: "Full-Stack Security Review"
+projectStep: "Design, implement, and ship a new Specialist Agent through the complete GitHub workflow"
+prerequisites:
+  - "Module 00 · Environment Setup"
+  - "Module 01 · Repositories & Commits"
+  - "Module 02 · Branching & Merging"
+  - "Module 03 · Pull Requests & Code Review"
+  - "Module 04 · Issues, Projects & Discussions"
+  - "Module 05 · GitHub Actions & CI/CD"
+  - "Module 06 · Security on GitHub"
+  - "Module 07 · Collaboration at Scale"
+  - "Module 08 · Packages, Releases & GitHub Pages"
+isCore: false
+
+learningObjectives:
+  - Independently design a new Specialist Agent that fits the A2A architecture
+  - Follow the complete contributor workflow from Discussion through to a merged PR without step-by-step prompts
+  - Write unit tests that give a reviewer confidence the agent handles both success and error cases
+  - Apply the security practices from Modules 00–08 without a checklist to guide you
+  - Tag a new release and verify the published image passes attestation
+  - Reflect on which GitHub skills were hardest and where to go next
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+Every module up to this point gave you instructions. This one doesn't.
+
+The Capstone is a self-directed project. You'll choose what to build,
+decide how to structure it, and navigate every step of the GitHub workflow
+on your own — the same way a real contributor to an open-source project
+does. The instructions from earlier modules are still available if you
+need to look something up. The goal is to work without needing to.
+
+By the end, you'll have made a genuine contribution to the A2A project:
+a new Specialist Agent that passes CI, clears code review, ships in a
+tagged release, and is documented in the deployed docs site. That's a
+complete, verifiable piece of work you can point to.
+
+<A2AConnection
+  step="Design and ship a new Specialist Agent"
+  files={[
+    'agents/<your-agent>/main.py',
+    'orchestrator/main.py',
+    '.env.example',
+    'tests/'
+  ]}
+>
+  The A2A system currently has three completed agents: Echo, Search, and
+  Calculate. Your Capstone adds one more. It must follow the A2A message
+  schema, integrate with the Orchestrator's routing table, include unit tests,
+  and go through the full contribution process — Discussion, Issue, branch,
+  PR, review, merge, release. The agent you choose to build is entirely
+  up to you.
+</A2AConnection>
+
+---
+
+## What You're Building
+
+A **Specialist Agent** for the A2A system that:
+
+- Exposes a `/run` endpoint accepting the standard A2A request schema
+- Routes on a unique `task` keyword not already used by an existing agent
+- Handles malformed input gracefully — returns `AgentResponse.error()`,
+  never an unhandled exception or 500
+- Has at least **6 unit tests** covering: a successful request, an error
+  case, the health endpoint, and at least three edge cases specific to
+  your agent's domain
+- Passes the full CI pipeline (`ruff` lint + format, `pytest`,
+  schema validation)
+- Is documented in a `README.md` inside its agent folder
+- Is registered in the Orchestrator's `AGENT_REGISTRY` and `.env.example`
+- Follows all security practices from the course — no hardcoded secrets,
+  safe input handling, no `eval()` on user data
+
+---
+
+## Agent Ideas
+
+You're not required to use these — they're starting points if you're
+deciding what to build.
+
+<Tabs>
+  <TabItem label="Beginner">
+    **Word Count Agent** (`task: "wordcount"`)
+
+    Count words, characters, sentences, and estimated reading time for a
+    block of text. No external dependencies. Good for focusing on the
+    GitHub workflow rather than the implementation complexity.
+
+    **Unit Converter Agent** (`task: "convert"`)
+
+    Parse conversion requests like `"5 km to miles"` or `"100 F to C"`.
+    Safe string parsing, no external API calls, predictable test cases
+    that are easy to write.
+
+    **Mock Weather Agent** (`task: "weather"`)
+
+    Return realistic-looking mock weather data for known city names.
+    Follows the same pattern as the Search Agent — a dictionary of mock
+    responses with no API key required. Can be extended later to call
+    Open-Meteo (free, no authentication needed).
+  </TabItem>
+  <TabItem label="Intermediate">
+    **Date/Time Agent** (`task: "datetime"`)
+
+    Parse natural-language date queries like `"what day is it in Tokyo?"`
+    or `"how many days until 25 December?"`. Uses Python's `datetime` and
+    `zoneinfo` standard library — no external dependencies, rich edge cases
+    for tests (invalid timezone, past dates, leap years).
+
+    **Summarise Agent** (`task: "summarise"`)
+
+    Accept a block of text and return a structured summary — key points,
+    word count, reading level. For tests, a mock mode toggled by an
+    environment variable avoids calling a real LLM. Introduces the
+    pattern of graceful degradation when an external service is unavailable.
+
+    **Translation Agent** (`task: "translate"`)
+
+    Detect language and translate text. LibreTranslate has a self-hostable
+    option and a public demo endpoint. In tests, mock the HTTP call — the
+    interesting test cases are around malformed input and unsupported
+    language codes, not the translation itself.
+  </TabItem>
+  <TabItem label="Advanced">
+    **Pipeline Agent** (`task: "pipeline"`)
+
+    Accept a pipeline definition like `"search then calculate"` and call
+    the other agents in sequence, passing outputs as inputs. Raises
+    interesting architecture questions: how do you prevent a pipeline
+    from calling itself? What's the trust boundary between agents?
+
+    **Webhook Relay Agent** (`task: "webhook"`)
+
+    Receive a task and POST the result to a configurable webhook URL.
+    Requires careful SSRF mitigation — validate the target URL is not
+    an internal network address (127.0.0.1, 10.x.x.x, 169.254.x.x).
+    This is the most security-interesting Capstone option.
+
+    **File Summary Agent** (`task: "summarise-file"`)
+
+    Accept a base64-encoded text file in the `input` field, decode it,
+    and return a structured summary. Tests must verify the agent rejects
+    files that exceed a size limit — open-ended size inputs are a
+    resource exhaustion vector.
+  </TabItem>
+</Tabs>
+
+---
+
+## The Workflow — No Hand-Holding
+
+This section describes the five phases of the Capstone. There are no
+numbered steps within each phase. Reference the relevant module when
+you need to look something up — that's the skill being practiced.
+
+### Phase 1 · Propose
+
+Open a **Discussion** in the Ideas category proposing your agent. Include
+what it does, why it fits the A2A architecture, and any external API or
+dependency requirements. If you're in a classroom setting, wait for
+instructor acknowledgement before proceeding.
+
+Then open an **Issue** tracking the implementation with a clear title,
+description, and acceptance criteria. Link it to the Discussion. Apply
+appropriate labels. Add it to the Projects board in **Backlog**. Assign
+it to yourself.
+
+**Reference:** Module 04 — Issues, Projects & Discussions
+
+---
+
+### Phase 2 · Branch and Build
+
+Create a feature branch following the naming conventions in
+`BRANCH-NAMING.md`. Implement the agent. Write tests alongside the
+implementation — not as an afterthought at the end.
+
+Before writing your agent, read at least two of the existing agents:
+
+```bash
+cat starter-project/python/agents/echo/main.py
+cat starter-project/python/agents/search/main.py
+cat starter-project/python/agents/calculate/main.py
+```
+
+Every agent follows the same structure. Yours should too.
+
+Run the test suite locally before pushing anything:
+
+```bash
+cd starter-project/python
+ruff check .
+ruff format --check .
+pytest tests/ -v
+```
+
+All checks must pass locally before you open a PR. Finding a failure
+locally takes seconds. Waiting for CI to fail and fixing it takes minutes.
+
+**Reference:** Modules 01–02 (commits, branches), Module 05 (CI)
+
+---
+
+### Phase 3 · PR and Review
+
+Push your branch and open a PR. Fill in every section of the PR
+template — including the Starter Project Checklist. A PR with a blank
+description will receive a review comment asking you to fill it in before
+the code is read. Save the round-trip.
+
+Check CI before requesting a review:
+
+```bash
+gh pr checks
+```
+
+If any check is red, fix it. Then request review from a peer or your
+instructor. Respond to every comment. Address feedback with new commits
+on the same branch — never close and re-open the PR. Mark conversations
+as resolved after addressing them.
+
+**Reference:** Modules 03 and 07
+
+---
+
+### Phase 4 · Merge and Release
+
+Once approved and CI is green, merge the PR using **Create a merge
+commit**. Delete the branch — GitHub offers to do this automatically
+after merge. Click it.
+
+Move the Issue on the Projects board to **Done**.
+
+Then tag a new minor release (your agent is a new feature, backward
+compatible with existing agents):
+
+```bash
+git switch main
+git pull origin main
+git tag -a v1.1.0 -m "v1.1.0 — Add [Your Agent Name] specialist agent"
+git push origin v1.1.0
+```
+
+Watch the release pipeline complete. Inspect the GitHub Release page,
+the published Docker image on the Packages tab, and the attached SBOM.
+Run `gh attestation verify` on the published image — the verification
+command is in the release notes.
+
+**Reference:** Module 08 — Packages, Releases & GitHub Pages
+
+---
+
+### Phase 5 · Document
+
+Push a docs update mentioning your agent. At minimum, add a line to the
+A2A architecture description in `docs/src/content/docs/how-it-works.mdx`.
+The Pages workflow redeploys automatically on push to `main`.
+
+Confirm your agent is visible on the live site.
+
+Then post in **Discussions → Showcase** — see the [Showcase section](#showcase)
+below.
+
+**Reference:** Module 08 (Pages), Module 04 (Discussions)
+
+---
+
+## Acceptance Criteria
+
+Your Capstone is complete when all of the following are true. A reviewer
+using the rubric checks each item.
+
+### The Agent
+
+- [ ] `GET /health` returns `{"agent": "<name>", "status": "healthy"}`
+- [ ] `POST /run` accepts the standard A2A request schema
+- [ ] Returns `AgentResponse.success()` on valid input
+- [ ] Returns `AgentResponse.error()` — never a 500 — on any error path
+- [ ] Handles empty `input` field with a descriptive error message
+- [ ] Never calls `eval()` on user-supplied input
+- [ ] No secrets or API keys hardcoded anywhere in the codebase
+- [ ] Registered in the Orchestrator's `AGENT_REGISTRY`
+- [ ] Agent URL and port added to `.env.example` with placeholder values
+- [ ] Agent folder contains a `README.md` with a usage example and
+      a working `curl` command
+
+### Tests
+
+- [ ] At least 6 unit tests using `pytest`
+- [ ] Tests cover: health endpoint, successful request, error on invalid
+      input, empty input, and at least 2 edge cases specific to your agent
+- [ ] All tests pass with `pytest tests/ -v` locally
+- [ ] Test file follows the naming pattern of existing test files
+      (`test_<agent>.py`)
+
+### GitHub Workflow
+
+- [ ] Discussion opened and linked from the Issue
+- [ ] Issue opened with title, description, and acceptance criteria
+- [ ] Feature branch named following `BRANCH-NAMING.md`
+- [ ] At least 3 commits with Conventional Commits messages
+- [ ] PR description fills in all sections of the PR template
+- [ ] CI was green when review was requested
+- [ ] All review comments addressed before merge
+- [ ] Branch deleted after merge
+- [ ] Issue moved to Done on the Projects board
+- [ ] New minor version tag pushed following semver
+- [ ] Release pipeline completed — GitHub Release visible
+- [ ] `gh attestation verify` passes on the published image
+
+### Documentation
+
+- [ ] `agents/<name>/README.md` exists with usage example
+- [ ] Docs site updated — agent mentioned in `how-it-works.mdx`
+- [ ] Pages workflow completed — change visible on the live site
+
+---
+
+## Rubric
+
+For classroom and educator use, the full assessment rubric is in
+`modules/09-capstone/rubric.md`. It scores five dimensions on a 0–4
+scale for a maximum of 20 points.
+
+| Dimension | Weight | What's assessed |
+|-----------|--------|----------------|
+| **GitHub Workflow** | 4 pts | Branch naming, commit quality, PR template completeness, review cycle behaviour |
+| **Code Quality** | 4 pts | Agent correctness, error handling, structure follows A2A conventions |
+| **Test Coverage** | 4 pts | Test count, variety, edge cases, all passing |
+| **Security Practices** | 4 pts | No hardcoded secrets, safe input handling, CODEOWNERS respected, no `eval()` |
+| **Release & Documentation** | 4 pts | Semver tag, release pipeline completed, attestation verified, docs updated |
+
+A score of 16 or above (80%) demonstrates mid-level GitHub proficiency.
+
+---
+
+## Common Pitfalls
+
+Read these before you start — not after CI fails.
+
+**Returning a 500 instead of `AgentResponse.error()`.**
+Every error path must return a structured error response. FastAPI returns
+a 500 when an unhandled exception propagates out of a route handler. Wrap
+your business logic in a `try/except` that catches expected errors and
+returns `AgentResponse.error()` for each one.
+
+**Opening the PR before CI is green.**
+The PR template checklist includes "CI checks are passing." If CI is red
+when you open the PR, a reviewer's first comment will be "fix CI before
+I review." Run `ruff check .` and `pytest tests/ -v` locally. Catch
+failures before they become a round-trip.
+
+**Blank PR description.**
+Every section of the PR template must be filled in — what the PR does,
+how to test it, and the checklist. A blank description is the most
+common reason a first PR receives a change request before any code is read.
+
+**Hardcoding the port.**
+Every agent reads its port from an environment variable with a sensible
+default. Follow the pattern of every existing agent:
+
+```python
+port = int(os.getenv("MY_AGENT_PORT", "8004"))
+```
+
+**Forgetting to delete the branch after merge.**
+GitHub offers to delete the branch immediately after merge. Click it.
+Branch hygiene is a checklist item in the rubric.
+
+**Forgetting `--force-with-lease` after a rebase.**
+If your branch drifts from `main` while your PR is open and you rebase
+to sync it, you must push with `--force-with-lease`. Plain `--force`
+works but bypasses a safety check. `--force-with-lease` refuses to push
+if someone else has pushed to your branch since you last fetched.
+
+**Not registering the agent in the Orchestrator.**
+The acceptance criteria requires an entry in the Orchestrator's
+`AGENT_REGISTRY`. The Orchestrator files are covered by `CODEOWNERS` —
+when you touch them, a review request is sent automatically. This is the
+security review path working as designed. Don't work around it.
+
+---
+
+## Getting Unstuck
+
+Use these resources in order before asking for help.
+
+1. **Re-read the relevant module.** The answer to most technical
+   questions is in Modules 00–08.
+
+2. **Check the existing agents.** Echo, Search, and Calculate are
+   reference implementations. If you're unsure how to handle something,
+   find how an existing agent does it and follow the same pattern.
+
+3. **Check CI logs directly.**
+   ```bash
+   gh run view --log-failed
+   ```
+   The error is almost always in the first red line of output.
+
+4. **Open a Discussion** in the Q&A category with a specific question.
+   Include what you tried, what command you ran, and what error you
+   received. "It doesn't work" is not enough information for anyone
+   to help you.
+
+5. **Ask a peer to pair-review your code.** A second set of eyes catches
+   things the author is too close to see. This is also good practice for
+   the Module 07 review skills.
+
+---
+
+<SecurityNote concept="Full-Stack Security Review" module={9} deepDive="supply-chain">
+  The Capstone is the first time you're responsible for all the security
+  decisions at once — without a module telling you which check applies.
+  Before you open your PR, run through this review yourself. A reviewer
+  using the rubric will.
+
+  **Commit hygiene.** Run this before every push:
+
+  ```bash
+  git log --all -p | grep -iE "(api_key|secret|token|password)\s*="
+  ```
+
+  Secret Scanning catches known patterns. It misses project-specific
+  formats. This scan takes ten seconds and catches what Secret Scanning
+  won't. Do it every time.
+
+  **Input handling.** Trace the path from `request.input` to every
+  operation your agent performs. If user input flows into a string
+  template, shell command, HTTP request URL, file path, or expression
+  evaluator — there must be explicit validation or sanitisation in
+  between. Document what validation you applied with a comment in the
+  code, not just in the PR description.
+
+  **External calls.** If your agent calls an external API, two questions:
+  Is the target URL configurable? If so, does your agent validate it's
+  an expected host — not an internal metadata endpoint like
+  `169.254.169.254`? And what happens when the external API is slow
+  or down? Your agent should have its own timeout shorter than the
+  Orchestrator's, so it returns a clean error rather than blocking
+  the request handler indefinitely.
+
+  **Error surface.** FastAPI's default 500 response includes the exception
+  type and sometimes the message. That's an information disclosure. Wrap
+  all business logic in explicit exception handling. Return
+  `AgentResponse.error()` with a user-appropriate message. Never let
+  the raw exception string reach the response body.
+
+  **New dependencies.** If your agent adds a package to `requirements.txt`,
+  pin the version and scan it immediately:
+
+  ```bash
+  pip index versions <package-name>   # find the current stable version
+  pip install <package>==<version>    # pin it
+  ```
+
+  Then check whether Dependabot has it in scope — your `dependabot.yml`
+  watches `starter-project/python/requirements.txt`. It does. A new
+  dependency is a new supply chain surface, assessed once, before it ships.
+
+  These five checks — commit hygiene, input handling, external call safety,
+  error surface, and dependency assessment — are the security review
+  framework from the entire course compressed to its essentials. A reviewer
+  who applies them spends fifteen minutes. An attacker who finds what they
+  missed has as long as they like.
+</SecurityNote>
+
+---
+
+## Showcase
+
+When your Capstone is merged and released, share it in
+**Discussions → Showcase**. Include:
+
+- What agent you built and what it does
+- A link to your merged PR — the permanent record of the contribution
+- The hardest part of the GitHub workflow to apply without prompts
+- One thing you'd do differently if you started again
+
+Showcase posts serve two purposes. For the community, they're a record
+of what's been built and evidence that the contribution process works.
+For you, writing a clear public summary of your own work is a skill
+in itself — the same skill that makes a good PR description, a good
+commit message, and a good Discussion post.
+
+---
+
+## Summary
+
+The Capstone brought together every skill the course taught:
+
+**Module 00** — Codespace running, `.env` not committed, `.gitignore` in place  
+**Module 01** — Meaningful commits, README written, Conventional Commits format  
+**Module 02** — Feature branch, never pushed directly to `main`, conflict resolved if needed  
+**Module 03** — PR template complete, review cycle finished, feedback addressed  
+**Module 04** — Discussion opened, Issue tracked on Projects board  
+**Module 05** — CI green before review requested, pipeline passed end-to-end  
+**Module 06** — No secrets committed, CODEOWNERS triggered the right reviewer  
+**Module 07** — `gh` CLI used, fork synced, contributor docs followed  
+**Module 08** — Semver tag pushed, release pipeline completed, image attested  
+
+If you completed the Capstone to the acceptance criteria, you have
+demonstrated mid-level GitHub proficiency through a real, verifiable
+contribution to a working system.
+
+---
+
+## What's Next
+
+You've completed the core course. Where you go from here:
+
+**Go deeper on GitHub.**
+Reusable workflows and composite actions in GitHub Actions. Custom CodeQL
+queries for your own codebase. GitHub Advanced Security for organisations.
+The `gh` CLI's full API surface — anything you can do in the browser,
+you can script.
+
+**Extend the A2A project.**
+Implement the Weather Agent proposed in Module 04's Discussion. Add
+agent-to-agent authentication so the Orchestrator can verify responses
+haven't been tampered with. Build a minimal frontend that sends tasks
+through the Orchestrator from a browser.
+
+**Contribute back to this course.**
+Found an error in a module? Open an issue with the lesson error template.
+Have a better exercise idea? Start a Discussion before writing anything.
+Want to translate a module into another language? Read the translation
+guide in `CONTRIBUTING.md` — Spanish and Portuguese are the priority
+languages, but all translations are welcome.
+
+**Teach someone else.**
+The fastest way to solidify what you've learned is to explain it. The
+Facilitator Guide is at `/educators/facilitator-guide/`. The Discussions
+Educators category has instructors who would benefit from seeing how
+you worked through the course.

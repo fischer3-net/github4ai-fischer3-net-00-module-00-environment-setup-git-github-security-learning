@@ -1,0 +1,851 @@
+---
+# src/content/docs/modules/08-releases/index.mdx
+
+title: "Module 08 · Packages, Releases & GitHub Pages"
+description: Ship the A2A project. Tag the first versioned release, publish Docker images to GitHub Packages, deploy the course documentation to GitHub Pages, and understand how artifact attestation lets users verify what they're running was built by your CI.
+moduleNumber: 8
+duration: "90–105 minutes"
+difficulty: intermediate
+hasSecurityNote: true
+securityConcept: "Release Signing & Container Image Provenance"
+projectStep: "Tag v1.0.0 of the A2A project, publish to GitHub Packages, and deploy docs to GitHub Pages"
+prerequisites: ["Module 05 · GitHub Actions & CI/CD", "Module 06 · Security on GitHub", "Module 07 · Collaboration at Scale"]
+isCore: false
+
+learningObjectives:
+  - Explain semantic versioning and create a correctly formatted Git tag
+  - Read the release workflow and understand the job sequence — build, attest, generate SBOM, create release
+  - Trigger a release by pushing a version tag and observe the full pipeline
+  - Explain what GitHub Packages is and where published images appear
+  - Enable GitHub Pages and deploy the Starlight documentation site via the pages workflow
+  - Explain what artifact attestation proves and how a user verifies a container image
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+The work of the last eight modules has been building something. This module
+is about shipping it — making it available to the people who will use it in
+a form they can trust, verify, and run without needing your help to set it up.
+
+Shipping has three parts for this project:
+
+**A GitHub Release** — a named, versioned snapshot of the codebase with
+human-readable release notes, downloadable source archives, and attached
+artifacts. This is what users find when they click the Releases link on your
+repository.
+
+**GitHub Packages** — a container registry where the Orchestrator Docker
+image is published so anyone can run the A2A system with a single
+`docker pull` command. No cloning, no dependency installation, no
+environment setup.
+
+**GitHub Pages** — a static site host where the course documentation built
+by the Starlight Astro site is deployed publicly. The docs live at a
+predictable URL tied to your repository.
+
+All three happen automatically when you push a version tag. The `release.yml`
+and `pages.yml` workflows handle everything. Your job in this module is to
+understand what they do, trigger them, and verify the results.
+
+<A2AConnection
+  step="Tag v1.0.0 and trigger the full release pipeline"
+  files={[
+    '.github/workflows/release.yml',
+    '.github/workflows/pages.yml'
+  ]}
+>
+  The A2A project has two production delivery workflows. `release.yml`
+  triggers on a version tag push and runs four jobs: build and push Docker
+  images to ghcr.io, attest the image digests, generate an SBOM, and create
+  the GitHub Release entry. `pages.yml` triggers on every push to `main` that
+  touches the docs source files and deploys the Starlight site to GitHub Pages.
+  In this module you'll read both workflows, enable the required repository
+  settings, and push the `v1.0.0` tag to set everything in motion.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### Semantic Versioning
+
+Releases are identified by version tags. This project uses **semantic
+versioning** (semver) — a three-number format that communicates the nature
+of every change:
+
+```
+v MAJOR . MINOR . PATCH
+  │        │       │
+  │        │       └── Bug fixes, no API changes
+  │        └────────── New features, backwards compatible
+  └─────────────────── Breaking changes
+```
+
+Examples for the A2A project:
+
+| Version | What changed |
+|---------|-------------|
+| `v1.0.0` | First stable release — Orchestrator + Echo + Search agents |
+| `v1.1.0` | Added Calculate Agent — new feature, backward compatible |
+| `v1.1.1` | Fixed division-by-zero edge case in Calculate Agent |
+| `v2.0.0` | A2A message schema changed — existing agents need updates |
+
+**Pre-releases** use a hyphen suffix: `v1.0.0-beta.1`, `v1.0.0-rc.2`.
+The `release.yml` treats any tag containing `-` as a pre-release
+(`prerelease: tag.includes('-')`).
+
+### Git Tags
+
+A **tag** is a named pointer to a specific commit — like a branch that
+never moves. Version tags are the most common use.
+
+```bash
+# Create an annotated tag (preferred for releases — includes a message)
+git tag -a v1.0.0 -m "First stable release of the A2A system"
+
+# Create a lightweight tag (just a pointer, no metadata)
+git tag v1.0.0
+
+# List all tags
+git tag
+
+# Push a specific tag to GitHub (tags are NOT pushed by default)
+git push origin v1.0.0
+
+# Push all tags at once
+git push origin --tags
+
+# Delete a tag locally and remotely (if you tagged the wrong commit)
+git tag -d v1.0.0
+git push origin --delete v1.0.0
+```
+
+<Aside type="caution" title="Tags are public and permanent — tag carefully">
+  Once a version tag is pushed to a public repository and a release is
+  created from it, the community may have already pulled that version.
+  Deleting or moving the tag after the fact breaks reproducibility —
+  someone who recorded "I'm using v1.0.0" can no longer verify what
+  that meant. Tag the right commit, and tag it once.
+</Aside>
+
+### GitHub Releases
+
+A **GitHub Release** is a human-facing presentation layer on top of a
+Git tag. It adds:
+
+- A title and release notes (can be auto-generated from merged PR titles)
+- Downloadable source archives (`.zip` and `.tar.gz` are created automatically)
+- Attached binary artifacts (Docker image digests, SBOMs, etc.)
+- A pre-release flag for beta or release candidate versions
+- A "Latest" badge on the repository's main page
+
+Releases appear at `https://github.com/fischer3-net/[repo]/releases`. The most
+recent non-prerelease release is displayed on the repository's right sidebar.
+
+### GitHub Packages and ghcr.io
+
+**GitHub Packages** is GitHub's built-in package registry. It supports
+container images (Docker), npm packages, Python packages (PyPI), Maven
+artifacts, and more. The container registry endpoint is `ghcr.io`.
+
+For Docker images, the published image name follows the pattern:
+```
+ghcr.io/[org-or-user]/[repo]/[image-name]:[tag]
+
+# Examples for this project:
+ghcr.io/your-org/git-github-security-learning/orchestrator-python:v1.0.0
+ghcr.io/your-org/git-github-security-learning/orchestrator-python:latest
+```
+
+Anyone can pull a public image without authentication:
+```bash
+docker pull ghcr.io/your-org/git-github-security-learning/orchestrator-python:v1.0.0
+docker run -p 8000:8000 ghcr.io/your-org/git-github-security-learning/orchestrator-python:v1.0.0
+```
+
+Authentication uses `GITHUB_TOKEN` in the workflow — no manual secret
+configuration is needed for public packages. Private packages require
+a Personal Access Token or fine-grained token with `read:packages` scope.
+
+### GitHub Pages
+
+**GitHub Pages** serves static files from your repository as a public
+website. The source can be a branch (the old approach) or a GitHub
+Actions workflow (the modern approach). This project uses the Actions
+approach — `pages.yml` builds the Astro site and deploys the output.
+
+The site URL follows one of these patterns:
+
+| Repository type | URL |
+|----------------|-----|
+| `[username].github.io` (special repo name) | `https://[username].github.io/` |
+| Any other public repo | `https://[username].github.io/[repo-name]/` |
+| Custom domain configured | `https://your-domain.com/` |
+
+For this project, the docs site will be at:
+`https://[your-username].github.io/git-github-security-learning/`
+
+### Reading `release.yml` — The Four-Job Pipeline
+
+The release workflow runs four jobs in a carefully ordered sequence:
+
+```
+push v1.0.0 tag
+       │
+       ▼
+┌─────────────────┐
+│  build-and-push │  Builds Docker images, pushes to ghcr.io
+│  (matrix: 2     │  Outputs: image digests for attestation
+│   variants)     │
+└────────┬────────┘
+         │ needs: build-and-push
+         ▼
+┌─────────────────┐
+│     attest      │  Signs digests with GitHub's Sigstore integration
+│                 │  Creates verifiable provenance for each image
+└────────┬────────┘
+         │
+  ┌──────┴──────┐
+  │             │   (parallel)
+  ▼             ▼
+generate-   create-release
+sbom        (needs: build-and-push + attest + generate-sbom)
+  │             │
+  │             │
+  └──────┬──────┘
+         ▼
+    GitHub Release created with auto-generated notes,
+    SBOM attached, attestation verification commands included
+```
+
+### Auto-Generated Release Notes
+
+The `create-release` job calls `generateReleaseNotes` via the GitHub API.
+This scans all PRs merged since the previous tag and groups them by label:
+
+```markdown
+## What's Changed
+
+### 🤖 Starter project
+* feat(calculate-agent): implement safe arithmetic expression evaluator by @contributor
+
+### 🐛 Bug Fixes
+* fix(echo-agent): handle empty input with 422 response by @contributor
+
+### 📝 Documentation
+* docs(module-07): add fork drift exercise by @contributor
+
+**Full Changelog**: https://github.com/org/repo/compare/v0.9.0...v1.0.0
+```
+
+The groupings are driven by the PR labels — another reason consistent
+labelling (Module 04) pays dividends at release time.
+
+---
+
+## Exercise
+
+### Part 1 — Read `release.yml` End to End
+
+Before triggering anything, read the full workflow.
+
+```bash
+code .github/workflows/release.yml
+```
+
+<Steps>
+1. **Find the trigger.** What tag pattern does the workflow match?
+   What would happen if you pushed a tag named `v1.0.0-beta.1`?
+   What about `release-1.0`?
+
+2. **Find the permissions block.** There are four permissions listed —
+   more than any other workflow in the project. For each one, find the
+   step in the workflow that requires it:
+   - `contents: write` — which step?
+   - `packages: write` — which step?
+   - `id-token: write` — which step?
+   - `attestations: write` — which step?
+
+3. **Find the matrix in `build-and-push`.** What two variants does it
+   build? What are the `image_suffix` values for each?
+
+4. **Find `docker/metadata-action`.** It generates four tag formats.
+   For a push of `v1.2.3`, what four Docker tags would be created?
+
+5. **Find the `outputs` block on `build-and-push`.** The `attest` job
+   needs image digests from the build job. How does it receive them?
+
+6. **Find `generate-sbom`.** What format is the SBOM generated in?
+   What action produces it?
+
+7. **Find `create-release`.** It uses `github-script` to call the
+   GitHub API. Find the `generateReleaseNotes` call — what does
+   `tag_name` need to match for the notes to be accurate?
+
+8. **Find the prerelease condition.** One line in the `createRelease`
+   call determines whether the release is marked as a prerelease.
+   What is it?
+</Steps>
+
+---
+
+### Part 2 — Read `pages.yml`
+
+```bash
+code .github/workflows/pages.yml
+```
+
+<Steps>
+1. **Find the path filter.** What files, when changed, trigger a
+   Pages deployment? Why is `starter-project/**` excluded?
+
+2. **Find the `concurrency` block.** The CI workflow uses
+   `cancel-in-progress: true`. Pages uses `cancel-in-progress: false`.
+   What's the reasoning behind the difference?
+
+3. **Find `actions/configure-pages`.** It sets two outputs used in the
+   Astro build step: `origin` and `base_path`. Why does an Astro build
+   need to know the base path?
+
+4. **Find `fetch-depth: 0` in the checkout step.** A comment explains
+   why Pages needs the full git history but CI doesn't. What is it?
+
+5. **Find the `environment` block in the deploy job.** This is a GitHub
+   Environments feature — it creates a named deployment environment
+   (`github-pages`) that appears in the repository's Deployments section.
+   What URL does it expose?
+</Steps>
+
+---
+
+### Part 3 — Enable GitHub Pages
+
+Before the pages workflow can deploy, you need to enable Pages in the
+repository settings and set the source to GitHub Actions.
+
+<Steps>
+1. Go to your repository → **Settings** → **Pages**.
+
+2. Under **Build and deployment**, set **Source** to
+   **GitHub Actions**.
+
+   Do not select a branch — the Actions-based deployment method
+   is what `pages.yml` uses. Selecting a branch would conflict.
+
+3. Click **Save**.
+
+4. Back in the **Pages** settings, note the URL shown under
+   "Your site is ready to be published at..." — bookmark it.
+   The site won't exist yet, but after the first deployment it
+   will be live at this address.
+
+5. Verify the `pages` environment exists. Go to **Settings →
+   Environments** — you should see `github-pages` listed. GitHub
+   creates this automatically when `pages.yml` first runs.
+</Steps>
+
+---
+
+### Part 4 — Trigger a Pages Deployment
+
+<Steps>
+1. Make a small change to the docs to trigger the workflow.
+   Open the docs landing page:
+
+   ```bash
+   code docs/src/content/docs/index.mdx
+   ```
+
+2. Find the description or tagline and make a minor edit — for example,
+   update the version reference or add a sentence. Save the file.
+
+3. Commit and push to `main`:
+
+   ```bash
+   git add docs/src/content/docs/index.mdx
+   git commit -m "docs: update landing page for v1.0.0 release"
+   git push origin main
+   ```
+
+4. Watch the pages workflow trigger:
+
+   ```bash
+   gh run list --workflow=pages.yml --limit 3
+   gh run watch
+   ```
+
+5. When the workflow completes, open the deployed site:
+
+   ```bash
+   gh browse --settings   # go to Settings → Pages to find the URL
+   ```
+
+   Or navigate directly to:
+   `https://YOUR-USERNAME.github.io/git-github-security-learning/`
+
+6. Confirm the site is live and the change you made is visible.
+   Navigate through the sidebar — the module pages should render
+   with the full Starlight theme, syntax highlighting, and navigation.
+</Steps>
+
+<Aside type="tip" title="Pages deployment takes 1–3 minutes">
+  The first deployment is slightly slower because GitHub provisions
+  the Pages infrastructure. Subsequent deployments are faster. If the
+  site doesn't appear after 5 minutes, check the workflow run logs for
+  errors and confirm the Pages source is set to GitHub Actions (not a branch).
+</Aside>
+
+---
+
+### Part 5 — Prepare for the Release Tag
+
+A release should go out from a clean, CI-passing state. Verify
+everything is ready before tagging.
+
+<Steps>
+1. Make sure you're on `main` and fully up to date:
+
+   ```bash
+   git switch main
+   git pull origin main
+   ```
+
+2. Check that CI is green on the latest commit:
+
+   ```bash
+   gh run list --workflow=ci.yml --limit 1
+   ```
+
+   The status should show `completed` with a ✅. If CI is failing,
+   fix it before continuing — releasing a broken state is the one
+   thing a release tag should never do.
+
+3. Review what has changed since the project's first commit — these
+   are the highlights that will appear in the release notes:
+
+   ```bash
+   git log --oneline
+   ```
+
+4. Check that all open PRs intended for `v1.0.0` are merged:
+
+   ```bash
+   gh pr list --state open
+   ```
+
+   If any PRs are still open that belong in this release, merge or
+   close them before tagging.
+
+5. Write a short mental summary of what `v1.0.0` contains — you'll
+   need this for the tag annotation message:
+   - Orchestrator Agent with keyword-based routing
+   - Echo Agent (Module 01–03)
+   - Search Agent (Module 02)
+   - Calculate Agent (Module 07)
+   - Full CI pipeline (Module 05)
+   - Security configuration (Module 06)
+</Steps>
+
+---
+
+### Part 6 — Create and Push the v1.0.0 Tag
+
+<Steps>
+1. Create an annotated tag. The `-m` message becomes part of the
+   permanent tag object in Git history:
+
+   ```bash
+   git tag -a v1.0.0 -m "v1.0.0 — First stable release
+
+   A2A system with Orchestrator + Echo, Search, and Calculate agents.
+   Full CI pipeline, CodeQL scanning, branch rulesets, and CODEOWNERS.
+   Includes Python (FastAPI) and Node.js (Express) starter project variants.
+
+   See the GitHub Release for full changelog and Docker image pull commands."
+   ```
+
+2. Confirm the tag was created:
+
+   ```bash
+   git tag -n    # shows tags with their annotation messages
+   ```
+
+3. Push the tag to GitHub. Remember: tags are not pushed with
+   `git push origin main` — they must be pushed explicitly:
+
+   ```bash
+   git push origin v1.0.0
+   ```
+
+4. Watch the release pipeline start immediately:
+
+   ```bash
+   gh run list --workflow=release.yml --limit 3
+   ```
+
+5. Stream the live logs:
+
+   ```bash
+   gh run watch
+   ```
+
+   You'll see the four jobs start — `build-and-push` first (two
+   parallel matrix variants), then `attest`, then `generate-sbom`
+   and `create-release` in parallel. The whole pipeline takes
+   roughly 5–8 minutes because Docker image builds are involved.
+</Steps>
+
+---
+
+### Part 7 — Inspect the Release
+
+<Steps>
+1. Once the workflow completes, open the release:
+
+   ```bash
+   gh release view v1.0.0 --web
+   ```
+
+2. Examine what was created automatically:
+
+   - **Title** — `GitHub for AI Builders v1.0.0`
+   - **Release notes** — auto-generated from merged PR titles, grouped
+     by label. If your PRs were labelled consistently, you'll see
+     separate sections for features, fixes, and docs.
+   - **Source archives** — `.zip` and `.tar.gz` of the repository at
+     this tag. Created automatically by GitHub, not the workflow.
+   - **Attached artifacts** — the `sbom.spdx.json` uploaded by the
+     `generate-sbom` job.
+   - **Docker pull commands** — the workflow injected these into the
+     release body via the `github-script` step.
+   - **Attestation verification command** — a `gh attestation verify`
+     command that anyone can run to verify the image provenance.
+
+3. View the release from the CLI:
+
+   ```bash
+   gh release view v1.0.0
+   ```
+
+4. Download the attached SBOM:
+
+   ```bash
+   gh release download v1.0.0 --pattern "sbom.spdx.json"
+   cat sbom.spdx.json | python -m json.tool | head -40
+   ```
+
+   The SBOM is machine-readable JSON listing every package, its version,
+   and its license. This is what enterprise and government users require
+   before deploying software into their environments.
+</Steps>
+
+---
+
+### Part 8 — Pull and Run the Published Image
+
+<Steps>
+1. Pull the published Orchestrator image:
+
+   ```bash
+   docker pull ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:v1.0.0
+   ```
+
+   If Docker isn't available in your Codespace, verify the image
+   exists via the CLI instead:
+
+   ```bash
+   gh api /users/YOUR-USERNAME/packages/container \
+     --jq '.[].name' 2>/dev/null || \
+   gh browse --repo YOUR-USERNAME/git-github-security-learning  # navigate to Packages tab
+   ```
+
+2. Navigate to the **Packages** tab of your repository on GitHub.
+   You'll see the two published images listed:
+   - `orchestrator-python`
+   - `orchestrator-nodejs`
+
+   Click into `orchestrator-python`. You'll see:
+   - All published tags (`v1.0.0`, `1.0`, `1`, `latest`, `sha-...`)
+   - Total download count
+   - The `docker pull` command for each tag
+   - A link to the workflow run that produced the image
+
+3. Check that `latest` also points to `v1.0.0`:
+
+   ```bash
+   docker pull ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:latest
+   ```
+
+   The `docker/metadata-action` in the workflow configured this
+   automatically — `latest` is updated whenever a non-prerelease
+   tag is pushed.
+</Steps>
+
+---
+
+### Part 9 — Verify the Attestation
+
+This is the step that closes the loop between shipping and trust.
+
+<Steps>
+1. Run the attestation verification command from the release notes:
+
+   ```bash
+   gh attestation verify \
+     oci://ghcr.io/YOUR-USERNAME/git-github-security-learning/orchestrator-python:v1.0.0 \
+     --repo YOUR-USERNAME/git-github-security-learning
+   ```
+
+2. A successful result looks like:
+
+   ```
+   Loaded digest sha256:abc123... for oci://ghcr.io/...
+   Attestation verified for digest sha256:abc123...
+
+   The following policy criteria were satisfied:
+   ✓ OIDC Issuer matches expected issuer
+   ✓ Source Repository URI matches
+   ✓ Source Repository Ref matches refs/tags/v1.0.0
+   ✓ Runner Environment matches GitHub-hosted runner
+   ```
+
+3. Read what each line means:
+   - **OIDC Issuer** — the attestation was signed by GitHub Actions'
+     identity provider, not by someone with access to your registry
+   - **Source Repository URI** — the image was built from *this* repository,
+     not a fork or a different project with the same image name
+   - **Source Repository Ref** — the image was built from the `v1.0.0` tag
+     specifically, not from an arbitrary commit
+   - **Runner Environment** — the build ran on a GitHub-hosted runner,
+     not a self-hosted runner that could have been tampered with
+
+4. What does this prove? That the image at `v1.0.0` was produced by
+   the `release.yml` workflow in your specific repository at the moment
+   that tag was pushed. A user who pulls this image can verify they're
+   running exactly what your CI built — not a tampered version pushed
+   to the registry by someone who compromised your registry credentials.
+</Steps>
+
+---
+
+## GitHub Releases Reference
+
+<Tabs>
+  <TabItem label="Tag Operations">
+    ```bash
+    # Create annotated tag (preferred)
+    git tag -a v1.0.0 -m "Release message"
+
+    # Tag a specific past commit
+    git tag -a v1.0.0 abc1234 -m "Tag older commit"
+
+    # List tags
+    git tag               # all tags
+    git tag -n            # tags with messages
+    git tag -l "v1.*"     # filter by pattern
+
+    # Push
+    git push origin v1.0.0          # one tag
+    git push origin --tags           # all tags
+
+    # Delete (be careful on public repos)
+    git tag -d v1.0.0               # local
+    git push origin --delete v1.0.0  # remote
+    ```
+  </TabItem>
+  <TabItem label="gh release">
+    ```bash
+    # View
+    gh release list
+    gh release view v1.0.0
+    gh release view v1.0.0 --web    # open in browser
+
+    # Create manually (without the workflow)
+    gh release create v1.0.0 \
+      --title "v1.0.0" \
+      --generate-notes \
+      --latest
+
+    # Create a pre-release
+    gh release create v1.1.0-beta.1 \
+      --prerelease \
+      --title "v1.1.0 Beta 1"
+
+    # Upload an artifact to an existing release
+    gh release upload v1.0.0 sbom.spdx.json
+
+    # Download artifacts
+    gh release download v1.0.0
+    gh release download v1.0.0 --pattern "*.json"
+
+    # Delete a release (doesn't delete the tag)
+    gh release delete v1.0.0
+    ```
+  </TabItem>
+  <TabItem label="Docker & ghcr.io">
+    ```bash
+    # Authenticate (for private images)
+    echo $GITHUB_TOKEN | docker login ghcr.io \
+      -u YOUR-USERNAME --password-stdin
+
+    # Pull
+    docker pull ghcr.io/org/repo/image:tag
+    docker pull ghcr.io/org/repo/image:latest
+
+    # Run
+    docker run -p 8000:8000 \
+      -e ECHO_AGENT_URL=http://host.docker.internal:8001 \
+      ghcr.io/org/repo/orchestrator-python:v1.0.0
+
+    # Inspect image metadata
+    docker inspect ghcr.io/org/repo/image:tag
+
+    # List local images
+    docker images ghcr.io/org/repo/*
+    ```
+  </TabItem>
+  <TabItem label="Attestation">
+    ```bash
+    # Verify a container image
+    gh attestation verify \
+      oci://ghcr.io/org/repo/image:tag \
+      --repo org/repo
+
+    # Verify with specific signer identity
+    gh attestation verify \
+      oci://ghcr.io/org/repo/image:tag \
+      --repo org/repo \
+      --signer-workflow .github/workflows/release.yml
+
+    # Download the attestation bundle for offline inspection
+    gh attestation download \
+      oci://ghcr.io/org/repo/image:tag \
+      --repo org/repo
+
+    # The bundle is a JSON Sigstore bundle you can inspect with
+    # the cosign CLI or any Sigstore-compatible verifier
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Semantic Versioning Decision Guide
+
+```
+What changed since the last release?
+
+  Breaking change to the A2A message schema?
+  Agent renamed, removed, or incompatibly changed?
+  ──▶ MAJOR bump: v1.x.x → v2.0.0
+
+  New Specialist Agent added?
+  New Orchestrator endpoint added?
+  New feature, backward compatible?
+  ──▶ MINOR bump: v1.0.x → v1.1.0
+
+  Bug fix in an existing agent?
+  Documentation correction?
+  Dependency security patch?
+  ──▶ PATCH bump: v1.0.0 → v1.0.1
+
+  Work in progress, not ready for production?
+  ──▶ Pre-release: v1.1.0-beta.1, v1.1.0-rc.1
+```
+
+---
+
+<SecurityNote concept="Release Signing & Container Image Provenance" module={8} deepDive="sbom-attestation">
+  When you publish a Docker image to a container registry, you're asking your
+  users to run code on their infrastructure. The image name and tag are
+  identifiers — they tell you what the image is supposed to be, but they don't
+  prove that the image in the registry is what it claims to be. A compromised
+  registry credential, a supply chain attack on a base image layer, or a
+  malicious insider could all result in an image at a known tag that runs
+  different code than the source repository describes.
+
+  **Artifact attestation** solves this. The `release.yml` workflow uses
+  `actions/attest-build-provenance` to sign each image digest using GitHub's
+  Sigstore integration. Sigstore is a transparency log — think of it as a
+  public append-only ledger where build provenance statements are recorded.
+  When a user runs `gh attestation verify`, they're checking that the digest
+  of the image they pulled appears in the transparency log with a valid
+  signature from GitHub Actions' OIDC identity provider, bound to your
+  specific repository and the specific workflow that ran.
+
+  **What this means for AI agent deployments specifically.** An AI agent that
+  runs in production is particularly sensitive to tampering. An agent that
+  has been replaced with a malicious image could exfiltrate conversation
+  content, inject instructions into the prompt pipeline, or forward traffic
+  to an attacker-controlled endpoint — all while appearing to function normally.
+  Attestation-based verification before deployment is the mechanism that
+  prevents this. The verification command in the release notes is not just
+  documentation — it's the step that should appear in any deployment
+  runbook for the A2A system.
+
+  **The SBOM is the other half of this story.** Attestation proves the image
+  was built by your CI. The SBOM proves what's inside it. Together they give
+  a user everything they need to assess the risk of running your software:
+  the build provenance (who built it, when, from what commit) and the full
+  dependency inventory (what packages are inside, at what versions, with what
+  licences). Enterprise security teams increasingly require both before
+  approving software for deployment — generating them at release time with
+  no extra manual work is a meaningful competitive advantage for an
+  open-source project.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Learned **semantic versioning** and the meaning of MAJOR, MINOR, and
+  PATCH increments for the A2A project
+- Read `release.yml` end to end — the four-job sequence: build Docker images,
+  attest digests, generate SBOM, create GitHub Release
+- Read `pages.yml` and understood path-filtered triggers, the Pages
+  concurrency setting, and how `actions/configure-pages` handles the
+  base path automatically
+- Enabled **GitHub Pages** with the Actions source and triggered the first
+  deployment by pushing a docs change
+- Created an **annotated tag** and pushed it, triggering the full release
+  pipeline
+- Inspected the resulting **GitHub Release** — auto-generated notes, source
+  archives, attached SBOM, Docker pull commands, and attestation verification
+  command
+- Pulled the published **Docker image** from ghcr.io and verified it through
+  the **Packages** tab
+- Ran `gh attestation verify` and read what each verification result
+  proves about the image provenance
+
+The A2A project is now fully shipped: versioned, containerised, documented
+on a live public site, and cryptographically verifiable. Every change from
+here on follows the same cycle — work in a branch, open a PR, pass CI, merge,
+and eventually tag a new release.
+
+---
+
+## What's Next
+
+**[Module 09 · Capstone Project →](/modules/09-capstone/)**
+
+Design and contribute a new Specialist Agent of your own choosing — from
+opening the proposal Discussion through to a merged PR and a new tagged
+release. Every GitHub skill from Modules 00–08 comes together in one
+end-to-end contribution that you own completely.

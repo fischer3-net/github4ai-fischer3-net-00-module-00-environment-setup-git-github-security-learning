@@ -1,0 +1,168 @@
+---
+title: How This Course Works
+description: Understand the structure of GitHub for AI Builders — how the modules, the A2A project, and the Security Thread fit together before you start.
+---
+
+import { Card, CardGrid, Aside, LinkCard } from '@astrojs/starlight/components';
+
+**GitHub for AI Builders** is a project-based course. Every GitHub concept is introduced at the moment it solves a real problem in a real codebase — not in isolation, and not with toy examples.
+
+Before you jump into Module 00, this page explains the three things that hold the course together: the module structure, the A2A project thread, and the Security Thread.
+
+---
+
+## The Module Structure
+
+The course has ten modules, numbered 00–09. They are designed to be completed in order — each module builds on the skills and project state from the one before it.
+
+| Module | Topic | What You Learn |
+|--------|-------|----------------|
+| **00** | Environment Setup | Codespaces, `.gitignore`, never committing secrets |
+| **01** | Repositories & Commits | `git init`, commit messages, README authoring |
+| **02** | Branching & Merging | Feature branches, merge conflicts, branch protection |
+| **03** | Pull Requests | Opening PRs, code review, merge strategies |
+| **04** | Issues & Projects | Issue tracking, labels, GitHub Projects boards |
+| **05** | GitHub Actions ⭐ | CI pipelines, workflow syntax, matrix builds |
+| **06** | Security ⭐ | Dependabot, CodeQL, Secret Scanning, CODEOWNERS |
+| **07** | Collaboration | Fork workflow, GitHub CLI, open-source contribution |
+| **08** | Packages & Releases | Docker images, GitHub Packages, tagging releases |
+| **09** | Capstone | Design and ship your own Specialist Agent |
+
+Modules 05 and 06 are marked **Core** — they cover concepts that every professional GitHub user needs, and several later modules assume you've completed them.
+
+### What's Inside Each Module
+
+Every module follows the same structure so you always know where to look:
+
+- **Background** — why the concept matters, grounded in the A2A project context
+- **Concepts** — explanation with examples from the real codebase
+- **Exercises** — hands-on steps that produce a visible change to the project
+- **Security Note** — one focused security concept connected to AI development risk
+- **Summary** — key takeaways, then a link to the next module
+
+<Aside type="tip" title="Learning objectives are promises">
+  Each module opens with a list of learning objectives written as action verbs:
+  "Fork a repository", "Resolve a merge conflict", "Configure Dependabot". These
+  are not aspirations — they describe exactly what you will be able to do by the
+  time you reach the Summary. Hold us to them.
+</Aside>
+
+---
+
+## The A2A Project Thread
+
+The **Agent-to-Agent (A2A) starter project** runs through every module. You don't
+study GitHub in the abstract — you use it to build, test, and ship a working
+multi-agent AI system.
+
+The system is simple by design: an **Orchestrator** receives task requests and
+routes them to **Specialist Agents** based on a `task` keyword. Each agent handles
+one class of work and returns a structured response.
+
+```
+Client → Orchestrator → Echo Agent
+                     → Search Agent
+                     → Calculate Agent
+                     → Your Agent  ← (you build this in the Capstone)
+```
+
+Each module adds something to the project:
+
+- **Module 00** — you run the Echo Agent for the first time to verify your environment
+- **Module 02** — you add the Search Agent on a feature branch and merge it
+- **Module 03** — you open a Pull Request for the Search Agent and go through review
+- **Module 05** — you build the CI pipeline that tests the whole stack on every PR
+- **Module 07** — you contribute the Calculate Agent using the open-source fork workflow
+- **Module 09** — you design and ship your own Specialist Agent from scratch
+
+By the Capstone, the project is a real, tested, CI-gated, Docker-packaged,
+GitHub Pages–documented system that you built yourself using professional workflows.
+
+See **[The A2A Project](/a2a-project/)** for a full architecture reference.
+
+---
+
+## The Security Thread
+
+Security isn't a module you complete and move on from. It's a thread woven into
+every module from the very first `.gitignore` you write in Module 00.
+
+Each module contains a **Security Note** — a focused, 100–300 word callout
+connecting one GitHub security feature to a specific risk in AI development.
+The security concepts build on each other:
+
+<CardGrid>
+  <Card title="Module 00" icon="warning">
+    **Never Commit Secrets** — Why API keys in git history are permanently compromised,
+    even after deletion.
+  </Card>
+  <Card title="Module 02" icon="warning">
+    **Branch Protection Rules** — How branch rulesets stop accidental pushes to
+    `main` and enforce review.
+  </Card>
+  <Card title="Module 03" icon="warning">
+    **Security-Aware Code Review** — What to look for when reviewing an AI agent
+    contribution: prompt injection, unsafe eval, credential leaks.
+  </Card>
+  <Card title="Module 04" icon="warning">
+    **Private Vulnerability Reporting** — How to disclose security issues without
+    exposing them publicly before a fix is ready.
+  </Card>
+  <Card title="Module 05" icon="warning">
+    **Secrets in GitHub Actions** — How to use encrypted secrets in workflows and
+    why `pull_request_target` needs special care.
+  </Card>
+  <Card title="Module 06" icon="warning">
+    **Dependabot & CodeQL** — Automated vulnerability scanning and static analysis
+    configured for the A2A stack.
+  </Card>
+  <Card title="Module 07" icon="warning">
+    **Supply Chain Security** — Evaluating a third-party agent contribution for
+    malicious dependencies and unsafe patterns.
+  </Card>
+  <Card title="Module 08" icon="warning">
+    **Release Signing & SBOM** — Artifact attestation and Software Bills of
+    Materials for the Docker images you ship.
+  </Card>
+</CardGrid>
+
+The **Security Thread** section in the sidebar collects deep-dive pages for each
+of these concepts, cross-referenced from the module Security Notes. If you want
+to study the security material as a standalone track, you can read those pages
+in order without following the full module sequence.
+
+---
+
+## Two Starter Project Variants
+
+The A2A starter project ships in **Python (FastAPI)** and **Node.js (Express)**.
+Both implement the same A2A message schema, expose the same endpoints, and pass
+the same integration tests. GitHub concepts are identical regardless of which
+variant you choose.
+
+Pick the language you're more comfortable with before Module 00. You don't need
+to switch — every exercise works in either variant.
+
+---
+
+## For Educators
+
+If you're running this course in a classroom, workshop, or bootcamp:
+
+- The **[Facilitator Guide](/educators/facilitator-guide/)** covers timing, classroom
+  setup, and how to adapt the material for different audiences.
+- **[Assessment Rubrics](/educators/rubrics/)** provide structured criteria for
+  evaluating learner work at each module.
+- Modules 05 and 06 are the highest-value sessions if you're running a shortened
+  version of the course — they cover CI/CD and security, which have the broadest
+  applicability beyond AI projects.
+
+---
+
+## Ready to Start?
+
+<LinkCard
+  title="Module 00 · Environment Setup →"
+  description="Fork the A2A starter repo, launch a Codespace, and run the Echo Agent for the first time."
+  href="../modules/00-setup"
+/>

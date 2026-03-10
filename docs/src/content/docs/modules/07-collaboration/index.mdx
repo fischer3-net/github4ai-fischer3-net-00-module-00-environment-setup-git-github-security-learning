@@ -1,0 +1,1007 @@
+---
+# src/content/docs/modules/07-collaboration/index.mdx
+
+title: "Module 07 · Collaboration at Scale"
+description: Simulate the full open-source contribution workflow. Fork the upstream repository, add a new Specialist Agent via the contributor process, sync your fork when upstream changes, and use the GitHub CLI to manage the entire workflow without leaving your terminal.
+moduleNumber: 7
+duration: "90–105 minutes"
+difficulty: intermediate
+hasSecurityNote: true
+securityConcept: "Evaluating Third-Party AI Agent Contributions"
+projectStep: "Contribute a new Specialist Agent through the full open-source workflow"
+prerequisites: ["Module 03 · Pull Requests & Code Review", "Module 04 · Issues, Projects & Discussions", "Module 06 · Security on GitHub"]
+isCore: false
+
+learningObjectives:
+  - Explain the difference between a fork and a clone, and when each is used
+  - Configure upstream and origin remotes and keep a fork in sync
+  - Navigate CONTRIBUTING.md and CODE_OF_CONDUCT.md as an incoming contributor
+  - Use the GitHub CLI (gh) to create issues, open PRs, and manage reviews without leaving the terminal
+  - Propose a new Specialist Agent following the project's contribution process end-to-end
+  - Describe what security-aware review of a third-party AI agent contribution looks like
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+Every module so far assumed you are the repository owner — you configured
+it, built the CI pipeline, and set the branch protection rules. That's one
+role on a real project. The other role — the one most developers spend
+more time in — is **contributor**: someone proposing changes to a project
+they don't own.
+
+Open-source contribution has a specific workflow designed around this
+asymmetry. You don't have write access to the upstream repository, so you
+can't push branches directly. Instead, you fork, work in your fork, and
+propose changes back via a Pull Request. The upstream maintainers review
+and decide whether to merge.
+
+This module puts you in the contributor seat. You'll read the project's
+`CONTRIBUTING.md` the way a new contributor does, follow the process it
+describes, and use the GitHub CLI to handle the mechanics without touching
+the browser. By the end, you'll have submitted a complete agent contribution
+through the same process any external contributor would use.
+
+<A2AConnection
+  step="Contribute a new Specialist Agent through the open-source workflow"
+  agent="calculator"
+  files={[
+    'CONTRIBUTING.md',
+    'CODE_OF_CONDUCT.md',
+    'CODEOWNERS',
+    'agents/calculate/main.py'
+  ]}
+>
+  The Calculate Agent has been tracked as an Issue since Module 04 — it was
+  registered in the Orchestrator in Module 02 but never implemented. In this
+  module you'll close that loop by contributing the implementation through the
+  full open-source process: read the contributor docs, open an issue (if one
+  doesn't exist), fork, implement, open a PR upstream, and respond to review.
+  You'll also sync your fork after a simulated upstream change lands while
+  your PR is open — the fork drift scenario every contributor eventually
+  encounters.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### Forks, Remotes, and the Two-Remote Model
+
+When you work on a project you don't own, you have two Git remotes:
+
+```
+GitHub (upstream)           GitHub (your fork)        Your machine
+─────────────────           ──────────────────        ─────────────
+fischer3-net/               [YOUR-USERNAME]/           local clone
+git-github-security-learning  ← git-github-security-learning  ← (working directory)
+        │                         │
+        │   git fetch upstream    │   git push origin
+        │ ◀──────────────────────  │ ──────────────────▶
+        │                         │
+        └─── maintainer merges PR ─┘
+```
+
+| Remote | What it points to | Used for |
+|--------|------------------|---------|
+| `origin` | Your fork on GitHub | Pushing your branches |
+| `upstream` | The original repository | Fetching the latest `main` |
+
+You never push to `upstream` — you don't have write access. You push to
+`origin` (your fork), then open a PR from your fork to `upstream`.
+
+### Configuring Remotes
+
+```bash
+# Clone your fork (origin is set automatically)
+git clone https://github.com/YOUR-USERNAME/git-github-security-learning.git
+cd git-github-security-learning
+
+# Add the upstream remote
+git remote add upstream https://github.com/fischer3-net/git-github-security-learning.git
+
+# Verify both remotes exist
+git remote -v
+# origin    https://github.com/YOUR-USERNAME/git-github-security-learning.git (fetch)
+# origin    https://github.com/YOUR-USERNAME/git-github-security-learning.git (push)
+# upstream  https://github.com/fischer3-net/git-github-security-learning.git (fetch)
+# upstream  https://github.com/fischer3-net/git-github-security-learning.git (push)
+```
+
+### Keeping Your Fork in Sync
+
+Upstream moves while you work. Before starting any new branch, sync:
+
+```bash
+# Fetch all changes from upstream (doesn't modify your local branches)
+git fetch upstream
+
+# Merge upstream/main into your local main
+git switch main
+git merge upstream/main
+
+# Push the updated main to your fork
+git push origin main
+```
+
+Or in one step using the GitHub CLI:
+
+```bash
+gh repo sync YOUR-USERNAME/git-github-security-learning --source fischer3-net/git-github-security-learning
+```
+
+**What happens when upstream changes while your branch is open?**
+Your PR shows as "X commits behind main." You need to update your branch:
+
+```bash
+git switch feat/my-feature
+git fetch upstream
+git rebase upstream/main    # Replay your commits on top of latest main
+git push origin feat/my-feature --force-with-lease
+```
+
+`--force-with-lease` is safer than `--force` — it refuses to push if the
+remote branch has commits you haven't seen, preventing you from accidentally
+overwriting someone else's work.
+
+### Reading CONTRIBUTING.md as a New Contributor
+
+`CONTRIBUTING.md` is the social contract of an open-source project. It tells
+you what the maintainers want, how to communicate with them, and what will get
+your PR accepted vs. closed. Ignoring it is the single most common reason
+first PRs are closed without merging.
+
+The five things to look for in any `CONTRIBUTING.md`:
+
+1. **Prerequisites and setup** — do you have everything installed?
+2. **What's in scope** — what kinds of contributions are welcomed?
+3. **Process before writing code** — does the project require an issue before a PR?
+4. **Branch and commit conventions** — what names and formats does the project expect?
+5. **PR checklist** — what must be true before you request a review?
+
+### The GitHub CLI (`gh`)
+
+The `gh` CLI is GitHub's official command-line tool. It wraps the GitHub API
+and lets you do everything the browser can do from your terminal: create issues,
+open PRs, request reviews, check CI status, merge, and more.
+
+```bash
+# Authentication
+gh auth login                          # Authenticate with GitHub
+gh auth status                         # Check current auth status
+
+# Repositories
+gh repo clone owner/repo               # Clone a repo
+gh repo fork owner/repo --clone        # Fork and clone in one step
+gh repo sync                           # Sync fork with upstream
+
+# Issues
+gh issue list                          # List open issues
+gh issue create                        # Create an issue interactively
+gh issue view 42                       # View issue #42
+gh issue close 42                      # Close issue #42
+
+# Pull Requests
+gh pr list                             # List open PRs
+gh pr create                           # Open a PR interactively
+gh pr view 17                          # View PR #17
+gh pr checkout 17                      # Check out a PR's branch locally
+gh pr review 17 --approve              # Approve a PR
+gh pr merge 17 --squash                # Merge PR #17 with squash
+
+# CI / Workflows
+gh run list                            # List recent workflow runs
+gh run watch                           # Watch the current run live
+gh workflow run ci.yml                 # Trigger a workflow manually
+```
+
+### Contributor vs. Collaborator vs. Maintainer
+
+These three roles have distinct meanings and access levels:
+
+| Role | Access | How you get it |
+|------|--------|---------------|
+| **Contributor** | No direct write access | Anyone — you fork and open PRs |
+| **Collaborator** | Write access to branches | Maintainer invites you |
+| **Maintainer** | Admin access | Repository owner grants it |
+
+Most open-source contributions come from people with no formal repository
+access. The fork-and-PR workflow is specifically designed for this — it lets
+anyone propose changes without requiring the maintainer to vet contributors
+before they can start working.
+
+---
+
+## Exercise
+
+### Part 1 — Read the Contributor Docs
+
+Before writing a single line of code, read the project's contributor
+documentation the way a new external contributor would.
+
+<Steps>
+1. Open `CONTRIBUTING.md`:
+
+   ```bash
+   code CONTRIBUTING.md
+   ```
+
+2. Find and answer these questions as you read:
+
+   - What four things does the project say make the **best contributions**?
+   - What kinds of contributions is the project **unlikely to accept**?
+   - For a new Specialist Agent, what file must be included alongside the code?
+     (Find the **Agent Contribution Checklist** section.)
+   - What should you do **before** writing a new module? (Hint: it's not
+     opening a PR.)
+   - How long do maintainers aim to take for PR reviews?
+
+3. Open `CODE_OF_CONDUCT.md`:
+
+   ```bash
+   code CODE_OF_CONDUCT.md
+   ```
+
+4. Find:
+   - The four groups the community is **explicitly welcoming** to
+   - How to report a Code of Conduct violation
+   - One example of **acceptable** behaviour that's specific to this
+     project (not just a generic CoC item)
+
+5. Check whether the Calculate Agent issue from Module 04 already exists:
+
+   ```bash
+   gh issue list --label "feat,starter-project"
+   ```
+
+   If it exists, note the issue number. If not, you'll create one in Part 2.
+</Steps>
+
+<Aside type="tip" title="CONTRIBUTING.md is a promise, not a suggestion">
+  Maintainers write `CONTRIBUTING.md` to save themselves time. Every PR that
+  ignores the process creates work: a comment explaining what's missing, a
+  follow-up review cycle, sometimes a closing with explanation. Following the
+  guide is the single highest-leverage thing a new contributor can do to get
+  their PR merged quickly.
+</Aside>
+
+---
+
+### Part 2 — Open an Issue (CLI)
+
+Per `CONTRIBUTING.md`, significant contributions need an issue before a PR.
+The Calculate Agent qualifies — it's a new agent, not a small fix.
+
+<Steps>
+1. Create the issue using the GitHub CLI:
+
+   ```bash
+   gh issue create \
+     --title "feat: implement Calculate Agent for arithmetic operations" \
+     --body "## Background
+
+   The Calculate Agent has been registered in the Orchestrator's AGENT_REGISTRY
+   since Module 02 (port 8003), but the implementation has never been contributed.
+   This issue tracks the full implementation following the contributor process.
+
+   ## What needs to be done
+
+   Implement the Calculate Agent as a Specialist Agent in the A2A system.
+
+   ## Acceptance Criteria
+
+   - [ ] Agent runs on port 8003 (configurable via CALCULATE_AGENT_URL)
+   - [ ] Accepts standard A2A request schema (task, input)
+   - [ ] Parses and evaluates arithmetic expressions from the input field
+   - [ ] Returns status: error with a descriptive message for invalid expressions
+   - [ ] Uses a safe expression parser — never eval() on user input
+   - [ ] Unit tests cover success, error, and edge cases
+   - [ ] Both Python and Node.js variants implemented
+   - [ ] Agent registered in .env.example" \
+     --label "feat,starter-project"
+   ```
+
+2. Confirm it was created:
+
+   ```bash
+   gh issue list --limit 5
+   ```
+
+   Note the issue number — you'll reference it in your PR description.
+
+3. Assign it to yourself:
+
+   ```bash
+   gh issue edit <issue-number> --add-assignee "@me"
+   ```
+</Steps>
+
+---
+
+### Part 3 — Fork and Configure Remotes
+
+In this exercise, you'll simulate the full fork workflow even though you
+already have a clone of your fork from earlier modules. The goal is to
+practice the remote configuration explicitly.
+
+<Steps>
+1. Check your current remotes:
+
+   ```bash
+   git remote -v
+   ```
+
+   You should see `origin` pointing at your fork. If `upstream` isn't
+   configured yet, add it now:
+
+   ```bash
+   git remote add upstream https://github.com/fischer3-net/git-github-security-learning.git
+   ```
+
+   Replace `fischer3-net` with the actual organisation or username that
+   owns the upstream repository.
+
+2. Fetch from upstream to make sure you're current:
+
+   ```bash
+   git fetch upstream
+   git switch main
+   git merge upstream/main
+   git push origin main
+   ```
+
+3. Verify the full remote picture:
+
+   ```bash
+   git remote -v
+   git log --oneline --graph --all --decorate | head -20
+   ```
+
+   You should see `origin/main` and `upstream/main` labels in the log,
+   showing that your local Git knows about both.
+</Steps>
+
+---
+
+### Part 4 — Implement the Calculate Agent
+
+Now do the actual work. You'll implement the Python variant of the
+Calculate Agent following the A2A conventions established in earlier modules.
+
+<Steps>
+1. Create the feature branch:
+
+   ```bash
+   git switch -c feat/calculate-agent
+   ```
+
+2. Create the agent directory and file:
+
+   ```bash
+   mkdir -p agents/calculate
+   code agents/calculate/main.py
+   ```
+
+3. Implement the agent. Use `ast.literal_eval` for safe expression
+   parsing — never `eval()` directly on user input:
+
+   ```python
+   """
+   Calculate Agent — Arithmetic Specialist Agent
+   
+   Evaluates basic arithmetic expressions passed via the A2A protocol.
+   Routes on task: "calculate".
+   
+   Security: Uses ast.literal_eval indirectly via a safe parser.
+   Never passes user input directly to eval().
+   """
+   import ast
+   import operator
+   import os
+   import logging
+   from fastapi import FastAPI
+   import uvicorn
+   
+   # Add the project root to the path for shared models
+   import sys
+   sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+   from models import AgentRequest, AgentResponse
+   
+   logging.basicConfig(level=logging.INFO)
+   logger = logging.getLogger(__name__)
+   
+   app = FastAPI(title="Calculate Agent", version="1.0.0")
+   
+   # Allowed operators — whitelist approach prevents injection
+   SAFE_OPERATORS = {
+       ast.Add: operator.add,
+       ast.Sub: operator.sub,
+       ast.Mult: operator.mul,
+       ast.Div: operator.truediv,
+       ast.Pow: operator.pow,
+       ast.USub: operator.neg,
+   }
+   
+   
+   def safe_eval(expression: str) -> float:
+       """
+       Safely evaluate an arithmetic expression without using eval().
+   
+       Parses the expression into an AST and walks it, only allowing
+       numeric literals and the operators in SAFE_OPERATORS.
+       Raises ValueError for anything else.
+       """
+       def _eval(node: ast.AST) -> float:
+           if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+               return node.value
+           elif isinstance(node, ast.BinOp) and type(node.op) in SAFE_OPERATORS:
+               left = _eval(node.left)
+               right = _eval(node.right)
+               if isinstance(node.op, ast.Div) and right == 0:
+                   raise ValueError("Division by zero")
+               return SAFE_OPERATORS[type(node.op)](left, right)
+           elif isinstance(node, ast.UnaryOp) and type(node.op) in SAFE_OPERATORS:
+               return SAFE_OPERATORS[type(node.op)](_eval(node.operand))
+           else:
+               raise ValueError(f"Unsupported expression: {ast.dump(node)}")
+   
+       try:
+           tree = ast.parse(expression.strip(), mode='eval')
+           return _eval(tree.body)
+       except (SyntaxError, ValueError) as e:
+           raise ValueError(str(e))
+   
+   
+   @app.get("/health")
+   async def health():
+       return {"agent": "calculate", "status": "healthy"}
+   
+   
+   @app.post("/run")
+   async def run(request: AgentRequest) -> AgentResponse:
+       logger.info(f"Calculate Agent received: task={request.task}, input={request.input!r}")
+       try:
+           result = safe_eval(request.input)
+           # Format cleanly: int if whole number, float otherwise
+           formatted = int(result) if result == int(result) else round(result, 8)
+           return AgentResponse.success(
+               agent="calculate",
+               output=str(formatted),
+               request_id=request.request_id,
+           )
+       except ValueError as e:
+           logger.warning(f"Calculate Agent error: {e}")
+           return AgentResponse.error(
+               agent="calculate",
+               error=f"Could not evaluate expression: {e}",
+               request_id=request.request_id,
+           )
+   
+   
+   if __name__ == "__main__":
+       port = int(os.getenv("CALCULATE_AGENT_PORT", "8003"))
+       logger.info(f"Starting Calculate Agent on port {port}")
+       uvicorn.run(app, host="0.0.0.0", port=port)
+   ```
+
+4. Write a `README.md` for the agent:
+
+   ```bash
+   code agents/calculate/README.md
+   ```
+
+   ```markdown
+   # Calculate Agent
+   
+   Evaluates arithmetic expressions routed from the Orchestrator.
+   
+   ## Usage
+   
+   Task keyword: `calculate`
+   
+   ```bash
+   curl -X POST http://localhost:8003/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "12 * 7"}'
+   ```
+   
+   Response:
+   ```json
+   {"agent": "calculate", "status": "success", "output": "84"}
+   ```
+   
+   ## Supported Operations
+   
+   Addition (`+`), subtraction (`-`), multiplication (`*`),
+   division (`/`), exponentiation (`**`), and parentheses.
+   
+   ## Security
+   
+   Expressions are parsed using Python's `ast` module — never `eval()`.
+   Only numeric literals and whitelisted operators are permitted.
+   ```
+
+5. Update `.env.example` with the new port variable:
+
+   ```bash
+   echo "CALCULATE_AGENT_PORT=8003" >> .env.example
+   echo "CALCULATE_AGENT_URL=http://localhost:8003" >> .env.example
+   ```
+
+6. Make three focused commits — one per logical change:
+
+   ```bash
+   git add agents/calculate/main.py
+   git commit -m "feat(calculate-agent): implement safe arithmetic expression evaluator
+
+   Uses ast.parse + a recursive AST walker to evaluate arithmetic
+   expressions without ever calling eval() on user input.
+   Whitelisted operators: +, -, *, /, **, unary minus.
+   Returns status:error for invalid expressions and division by zero."
+
+   git add agents/calculate/README.md
+   git commit -m "docs(calculate-agent): add agent README with usage examples"
+
+   git add .env.example
+   git commit -m "chore(config): add CALCULATE_AGENT_PORT and URL to env example"
+   ```
+</Steps>
+
+---
+
+### Part 5 — Test Before You Push
+
+`CONTRIBUTING.md` requires that new agent contributions are tested.
+Don't open the PR until you've verified this works.
+
+<Steps>
+1. Start the Calculate Agent in one terminal:
+
+   ```bash
+   cd starter-project/python
+   python agents/calculate/main.py
+   ```
+
+2. In a second terminal, run through the acceptance criteria:
+
+   ```bash
+   # Basic arithmetic
+   curl -s -X POST http://localhost:8003/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "12 * 7"}' | python -m json.tool
+
+   # Expected: {"agent": "calculate", "status": "success", "output": "84"}
+
+   # Floating point
+   curl -s -X POST http://localhost:8003/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "10 / 3"}' | python -m json.tool
+
+   # Division by zero — should return error, not crash
+   curl -s -X POST http://localhost:8003/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "5 / 0"}' | python -m json.tool
+
+   # Injection attempt — should return error, not execute
+   curl -s -X POST http://localhost:8003/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "__import__(\"os\").system(\"whoami\")"}' | python -m json.tool
+   ```
+
+3. Verify the last test returns `status: "error"` — not a system username.
+   That's the safe parser working correctly.
+
+4. Test routing through the Orchestrator:
+
+   ```bash
+   # Start Orchestrator (separate terminal)
+   python orchestrator/main.py
+
+   curl -s -X POST http://localhost:8000/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "calculate", "input": "2 ** 10"}' | python -m json.tool
+
+   # Expected: {"agent": "calculate", "status": "success", "output": "1024"}
+   ```
+</Steps>
+
+---
+
+### Part 6 — Open the PR with the GitHub CLI
+
+<Steps>
+1. Push the branch to your fork:
+
+   ```bash
+   git push origin feat/calculate-agent
+   ```
+
+2. Open the PR entirely from the terminal using `gh`:
+
+   ```bash
+   gh pr create \
+     --title "feat(calculate-agent): implement safe arithmetic expression evaluator" \
+     --body "## What does this PR do?
+
+   Implements the Calculate Agent as a new Specialist Agent in the A2A system.
+   The Orchestrator already had \`calculate\` registered in its routing table
+   (added in Module 02) — this PR provides the implementation.
+
+   The agent evaluates arithmetic expressions using Python's \`ast\` module
+   with a recursive AST walker. It never calls \`eval()\` on user input.
+
+   ## Related Issue
+   Closes #$(gh issue list --search 'Calculate Agent' --json number --jq '.[0].number')
+
+   ## Type of Change
+   - [x] 🤖 Starter project — changes to \`starter-project/python/\`
+
+   ## Module(s) Affected
+   Starter Project — Python variant
+
+   ## Testing
+   \`\`\`bash
+   python agents/calculate/main.py
+   curl -X POST http://localhost:8003/run \\
+     -H 'Content-Type: application/json' \\
+     -d '{\"task\": \"calculate\", \"input\": \"12 * 7\"}'
+   # Expected: {\"agent\": \"calculate\", \"status\": \"success\", \"output\": \"84\"}
+   \`\`\`
+
+   ## Starter Project Checklist
+   - [x] No secrets or API keys hardcoded
+   - [x] CALCULATE_AGENT_PORT added to .env.example
+   - [x] Agent is already registered in Orchestrator's routing table
+   - [x] Expression evaluator tested against injection attempts
+   - [ ] Node.js variant — tracked as a follow-up issue" \
+     --assignee "@me"
+   ```
+
+3. View the PR you just created:
+
+   ```bash
+   gh pr view --web
+   ```
+
+   This opens it in your browser. Confirm the description rendered
+   correctly — especially the checklist items and the issue link.
+
+4. Check CI status from the terminal:
+
+   ```bash
+   gh pr checks
+   ```
+
+   This shows the status of every required check on the PR — the same
+   information visible in the PR's **Checks** tab.
+</Steps>
+
+---
+
+### Part 7 — Simulate Fork Drift and Sync
+
+While your PR is open, upstream moves. Simulate this and practice
+the sync workflow.
+
+<Steps>
+1. Switch to `main` locally:
+
+   ```bash
+   git switch main
+   ```
+
+2. Simulate an upstream commit by making a direct change to `main`
+   (representing what another contributor merged upstream while you
+   were working on your branch):
+
+   ```bash
+   echo "# Calculate Agent tracked in Issue #$(gh issue list --search 'Calculate' --json number --jq '.[0].number')" >> orchestrator/README.md
+   git add orchestrator/README.md
+   git commit -m "docs(orchestrator): note Calculate Agent issue reference"
+   git push origin main
+   ```
+
+3. Now your feature branch is behind `main`. Check:
+
+   ```bash
+   git switch feat/calculate-agent
+   git log --oneline --graph --all | head -15
+   ```
+
+   You'll see `main` has moved ahead of where your branch forked.
+
+4. Rebase your branch onto the current `main`:
+
+   ```bash
+   git fetch upstream 2>/dev/null || git fetch origin
+   git rebase origin/main
+   ```
+
+   Since your changes don't overlap, this rebase will be clean.
+
+5. Push the rebased branch — you need `--force-with-lease` because the
+   rebase rewrote the commit SHAs:
+
+   ```bash
+   git push origin feat/calculate-agent --force-with-lease
+   ```
+
+6. Return to the PR on GitHub:
+
+   ```bash
+   gh pr view --web
+   ```
+
+   The PR now shows the rebased commits and is up to date with `main`.
+   The "X commits behind main" warning is gone.
+
+   <Aside type="note" title="force-with-lease vs --force">
+     `--force-with-lease` checks that nobody else has pushed to your branch
+     since you last fetched. If they have, it refuses — protecting you from
+     overwriting work. Plain `--force` has no such check. Always use
+     `--force-with-lease` when force-pushing a rebased branch.
+   </Aside>
+</Steps>
+
+---
+
+### Part 8 — Review Another Contributor's PR
+
+Healthy open-source projects need reviewers as much as contributors.
+Practice the review side of the workflow.
+
+<Steps>
+1. List open PRs in the repository:
+
+   ```bash
+   gh pr list
+   ```
+
+2. If another PR exists, check it out locally:
+
+   ```bash
+   gh pr checkout <pr-number>
+   ```
+
+   This fetches the PR's branch and switches to it — you can run the
+   code locally without manually adding someone else's fork as a remote.
+
+3. Test the code, then leave a structured review using the CLI:
+
+   ```bash
+   # Approve with a comment
+   gh pr review <pr-number> \
+     --approve \
+     --body "Tested locally — the agent handles edge cases correctly.
+   One suggestion: add a comment above safe_eval explaining why
+   ast.parse is used instead of eval(). Future contributors may
+   be tempted to simplify it."
+
+   # Or request changes
+   gh pr review <pr-number> \
+     --request-changes \
+     --body "The division by zero case returns a 500 rather than a
+   structured error response. The agent should catch this and
+   return AgentResponse.error() to match the A2A contract."
+   ```
+
+4. Switch back to your own branch when done:
+
+   ```bash
+   git switch feat/calculate-agent
+   ```
+</Steps>
+
+---
+
+## The `gh` CLI Reference
+
+<Tabs>
+  <TabItem label="Repos & Forks">
+    ```bash
+    # Fork a repo and clone it in one step
+    gh repo fork owner/repo --clone --remote
+
+    # Sync your fork with upstream
+    gh repo sync                            # syncs current repo
+    gh repo sync owner/fork --source owner/upstream
+
+    # View repo info
+    gh repo view
+    gh repo view owner/repo --web           # open in browser
+
+    # Clone any repo
+    gh repo clone owner/repo
+    ```
+  </TabItem>
+  <TabItem label="Issues">
+    ```bash
+    # List and filter
+    gh issue list
+    gh issue list --label "feat" --assignee "@me"
+    gh issue list --search "Calculate Agent"
+
+    # Create
+    gh issue create --title "..." --body "..." --label "feat"
+
+    # Manage
+    gh issue view 42
+    gh issue edit 42 --add-label "in-progress"
+    gh issue close 42 --comment "Fixed in PR #17"
+    gh issue reopen 42
+    ```
+  </TabItem>
+  <TabItem label="Pull Requests">
+    ```bash
+    # Create
+    gh pr create                            # interactive
+    gh pr create --title "..." --body "..." --draft
+
+    # Review and manage
+    gh pr list
+    gh pr view 17
+    gh pr checkout 17                       # check out locally
+    gh pr checks                            # CI status
+    gh pr review 17 --approve
+    gh pr review 17 --request-changes --body "..."
+    gh pr merge 17 --squash --delete-branch
+
+    # Edit
+    gh pr edit 17 --add-label "needs-review"
+    gh pr ready                             # mark draft as ready
+    ```
+  </TabItem>
+  <TabItem label="Workflows & CI">
+    ```bash
+    # List and trigger
+    gh workflow list
+    gh workflow run ci.yml --ref main
+    gh workflow run ci.yml --field target_agent=calculate
+
+    # Monitor
+    gh run list --workflow=ci.yml --limit 5
+    gh run view                             # most recent run
+    gh run watch                            # live stream
+    gh run view --log-failed                # only failures
+
+    # Artifacts
+    gh run download <run-id>
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## What Makes a Good Upstream PR
+
+When contributing to a project you don't own, the bar for your PR
+is slightly higher than for your own repository — you're asking someone
+to take responsibility for your code.
+
+```
+Before opening a PR to upstream:
+
+✅ Read CONTRIBUTING.md front to back
+✅ The issue exists and links to your PR
+✅ Your branch is current with main (no drift)
+✅ CI is passing on your branch
+✅ CODEOWNERS will request the right reviewers automatically
+✅ The checklist in the PR template is complete
+✅ You've tested the acceptance criteria from the issue
+
+After opening:
+
+✅ Respond to review comments within a reasonable time
+✅ Push fixes as new commits on the same branch
+   (don't close and re-open the PR)
+✅ Mark conversations as resolved after addressing them
+✅ Don't merge without at least one approval
+
+What to avoid:
+
+❌ Opening a PR before the work is ready (use Draft instead)
+❌ Combining multiple unrelated changes in one PR
+❌ Rewriting your entire commit history after review starts
+❌ Arguing against every review comment — some are judgment calls
+❌ Pinging reviewers more than once per week
+```
+
+---
+
+<SecurityNote concept="Evaluating Third-Party AI Agent Contributions" module={7} deepDive="supply-chain">
+  When an external contributor opens a PR to add a new Specialist Agent to the
+  A2A project, a maintainer faces a trust problem that doesn't exist in
+  traditional software contributions: the agent code isn't just logic — it's
+  a component that will receive user input, potentially call external APIs,
+  and send its output through the Orchestrator to other parts of the system.
+  A compromised or carelessly written agent is a threat surface inside your
+  own architecture.
+
+  **What to look for in a new agent PR:**
+
+  **Input handling.** Does the agent pass `request.input` directly into any
+  template string, shell command, external API call, or expression evaluator?
+  The Calculate Agent in this module uses a whitelist AST approach precisely
+  because the naive implementation — `eval(request.input)` — would allow any
+  Python expression, including `__import__('os').system('rm -rf /')`. Review
+  every path from `request.input` to any operation that executes, queries, or
+  calls out.
+
+  **External calls.** Does the agent make HTTP requests to third-party services?
+  If so, are those URLs hardcoded or configurable? A configurable URL (via
+  environment variable) is better — but a URL that can be set to an internal
+  network address via a `.env` file is an SSRF vector if the agent runs in a
+  cloud environment with access to instance metadata endpoints. Check whether
+  the agent validates or restricts the URLs it will call.
+
+  **Credentials in the contribution.** Run `git log --all -p | grep -i
+  "api_key\|secret\|token\|password"` on the PR branch before merging. GitHub
+  Secret Scanning catches known formats, but project-specific or uncommonly
+  formatted keys won't be detected automatically. A manual scan of the diff
+  is the backstop.
+
+  **Error behaviour.** Does the agent return a structured `AgentResponse.error()`
+  on failure, or does it propagate exceptions? An unhandled exception in a
+  Specialist Agent can crash the Orchestrator's request handler and bring down
+  the entire system. The A2A contract requires explicit error responses —
+  verify the PR implements this for every failure path.
+
+  **The CODEOWNERS protection you configured in Module 06 ensures these checks
+  are performed by someone who knows what to look for.** Without CODEOWNERS,
+  a contributor could get a PR approved by a reviewer who doesn't know the
+  A2A architecture well enough to spot these patterns. The combination of
+  CODEOWNERS routing, the Agent Contribution Checklist in `CONTRIBUTING.md`,
+  and the PR template's starter project section creates three overlapping
+  prompts for a reviewer to ask the right questions.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Understood the **two-remote model** — `origin` (your fork) and `upstream`
+  (the source repository) — and why it exists
+- Read `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` as an incoming contributor,
+  answering the questions that determine whether a PR gets merged
+- Used the **GitHub CLI** (`gh`) to create an issue, open a PR, check CI
+  status, and leave a review — the entire workflow without leaving the terminal
+- Implemented the **Calculate Agent** using a safe AST-based expression
+  evaluator, following the A2A agent contract and the project's security
+  practices
+- Simulated **fork drift** — upstream moving while your branch was open —
+  and resolved it with `git rebase` and `--force-with-lease`
+- Practised the **review side** of open-source contribution by checking out
+  and testing another PR locally via `gh pr checkout`
+
+The contributor workflow you practiced here is what every external pull
+request to this project follows. Understanding both sides — contributor
+and maintainer — makes you a better collaborator regardless of which
+role you're in on any given day.
+
+---
+
+## What's Next
+
+**[Module 08 · Packages, Releases & GitHub Pages →](/modules/08-releases/)**
+
+You'll tag the first versioned release of the A2A project, generate
+auto-release notes from merged PRs, publish the Orchestrator as a Docker
+image to GitHub Packages, and deploy the course documentation to GitHub
+Pages — the full production distribution pipeline for an open-source
+AI project.

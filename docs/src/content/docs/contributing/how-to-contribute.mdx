@@ -1,0 +1,346 @@
+---
+title: How to Contribute
+description: Everything you need to make your first contribution to GitHub for AI Builders — from opening an issue to getting your PR merged.
+---
+
+import { Steps, Aside, LinkCard } from '@astrojs/starlight/components';
+
+Thank you for contributing. This course is better because of people who fix typos,
+improve exercises, translate modules, and add new agents to the starter project.
+This page covers the full contributor workflow — from finding something to work on
+to getting your PR merged.
+
+<Aside type="tip" title="New to open source?">
+  This course teaches the GitHub contributor workflow in **Module 07**. Contributing
+  here is a great way to practice what you've learned. The process you follow
+  in this guide is the same one taught in the module.
+</Aside>
+
+---
+
+## What We're Looking For
+
+The best contributions to this course:
+
+- **Make learning clearer.** If an explanation confused you, your rewrite will help the next person.
+- **Deepen the A2A project connection.** Exercises grounded in the Agent-to-Agent starter project are strongly preferred over abstract examples.
+- **Strengthen the security thread.** Security notes connected to real AI development risks — not generic warnings — are especially valued.
+- **Work for educators.** Instructors need content that's predictable, scoped, and remixable. Keep modules self-contained.
+- **Stay language-agnostic on GitHub concepts.** GitHub skills should be taught identically regardless of whether the learner chose the Python or Node.js starter project.
+
+## What We're Not Looking For
+
+To set expectations early, the following are unlikely to be accepted:
+
+- Adding GitHub concepts not covered in the current module scope
+- Starter project agents that exist purely as code examples without a clear pedagogical purpose
+- Exercises that require external accounts, paid services, or non-public APIs
+- Content that assumes learners have completed modules out of sequence
+
+---
+
+## Ways to Contribute
+
+### Fix a Lesson Error
+
+Found a broken command, a typo, or a step that doesn't work? This is the
+highest-value contribution and can be as small as a single-line PR.
+
+1. Open a [Lesson Error issue](https://github.com/fischer3-net/git-github-security-learning/issues/new?template=lesson-error.yml) using the structured form.
+2. If the fix is obvious and small (one file, a few lines), you're welcome to skip the issue and open a PR directly — just describe the error in the PR description.
+
+### Suggest or Write a New Exercise
+
+Exercises are the primary way learners practice. If a module is missing a
+useful hands-on exercise, open a
+[New Exercise issue](https://github.com/fischer3-net/git-github-security-learning/issues/new?template=new-exercise.yml).
+The form will ask you how the exercise connects to the A2A project — that
+connection is required.
+
+If you want to write the exercise yourself, check the box in the issue form
+and a maintainer will assign it to you.
+
+### Propose a New Module
+
+New modules require more coordination than other contribution types — they affect
+course structure, timing estimates, and the facilitator guide.
+
+1. Start a [Discussion](https://github.com/fischer3-net/git-github-security-learning/discussions/new?category=ideas) in the Ideas category before opening any issue or PR.
+2. Once there's consensus, open a [New Module issue](https://github.com/fischer3-net/git-github-security-learning/issues/new?template=new-module.yml) — the form requires a link to the prior Discussion.
+
+### Translate a Module
+
+Translations are warmly welcomed. Before starting:
+
+1. Open a [Discussion](https://github.com/fischer3-net/git-github-security-learning/discussions) announcing your intent to avoid duplicate work.
+2. Maintainers will create a tracking issue and a translation branch for you.
+
+Translation guidelines:
+- Translate content in `modules/` and `docs/` — do not translate code, file names, or CLI commands.
+- Maintain the same structure and heading hierarchy as the English original.
+- Translated files live at `translations/[language-code]/modules/...` — for example, `translations/es/modules/01-repos-and-commits/`.
+- Wait until a module is finalized in English before translating it.
+
+See [Translating Modules](/contributing/translating/) for the full guide.
+
+### Contribute to the Starter Project
+
+The A2A starter project in `starter-project/` should stay **intentionally simple** —
+the goal is to teach GitHub, not software architecture. Contributions here should:
+
+- Include unit tests for any new agent logic.
+- Work in both the Python and Node.js variants, or clearly scope to one with a note.
+- Follow all security practices taught in the course — no hardcoded secrets, proper `.gitignore`.
+
+For new Specialist Agents specifically, every item in the checklist below must be
+satisfied before your PR will be reviewed:
+
+- [ ] The agent exposes a `/run` endpoint matching the A2A message schema
+- [ ] The agent is registered in the Orchestrator's routing table
+- [ ] No secrets, API keys, or credentials are hardcoded — all values use environment variables
+- [ ] A `.env.example` is included showing required variable names (not values)
+- [ ] The agent handles malformed input gracefully and returns `AgentResponse.error()` on failure — never an unhandled exception
+- [ ] Unit tests are included in `tests/`
+- [ ] The agent is documented in a `README.md` inside its folder
+- [ ] `CODEOWNERS` is updated if the agent introduces a new sensitive capability
+
+---
+
+## Development Setup
+
+<Steps>
+1. **Fork** the repository using the GitHub UI.
+
+2. **Clone your fork** locally:
+
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/git-github-security-learning.git
+   cd git-github-security-learning
+   ```
+
+3. **Add the upstream remote** so you can sync with the original:
+
+   ```bash
+   git remote add upstream https://github.com/fischer3-net/git-github-security-learning.git
+   ```
+
+4. **Launch a Codespace** (recommended) — the devcontainer configures Python,
+   Node.js, and the GitHub CLI automatically:
+
+   ```bash
+   gh codespace create --repo YOUR-USERNAME/git-github-security-learning
+   ```
+
+   Or open a Codespace directly from the GitHub UI using the **Code** → **Codespaces** menu.
+
+5. **Install dependencies** for the variant you're working with:
+
+   ```bash
+   # Python
+   cd starter-project/python && pip install -r requirements.txt
+
+   # Node.js
+   cd starter-project/nodejs && npm install
+
+   # Docs site
+   cd docs && npm install
+   ```
+</Steps>
+
+---
+
+## Branch Naming
+
+Every branch follows the pattern `<type>/<short-description>`:
+
+| Prefix | Use for |
+|--------|---------|
+| `feat/` | New lesson content, exercises, or starter project capabilities |
+| `fix/` | Correcting errors in lessons, broken commands, or bugs |
+| `docs/` | README, CONTRIBUTING, facilitator guide, or other repo docs |
+| `translation/` | Translated content — always include the language code |
+| `chore/` | Dependency updates, CI config, Dependabot, tooling |
+| `test/` | Adding or fixing tests |
+| `security/` | Security notes, CodeQL config, workflow hardening |
+| `refactor/` | Code quality improvements with no behaviour change |
+
+**Examples:**
+```
+fix/module-03-pr-template-typo
+feat/module-06-codeql-exercise
+docs/facilitator-guide-timing-estimates
+translation/es-module-01
+chore/update-dependabot-config
+```
+
+**Rules:** lowercase only, hyphens between words, 2–5 words in the description,
+module number for module-specific work. No usernames, no issue numbers, no generic
+names like `bug` or `my-branch`. See the [Branch Naming Reference](/reference/branch-naming/)
+for the full guide.
+
+---
+
+## Commit Messages
+
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(scope): <short description>
+
+[optional body]
+
+[optional footer: closes #issue-number]
+```
+
+**Types:** `fix`, `feat`, `docs`, `chore`, `test`, `translation`
+
+**Examples:**
+```
+fix(module-03): correct git merge command in exercise 2
+
+feat(starter-project): add Calculator specialist agent with unit tests
+
+Closes #42
+
+translation(es): add Spanish translation of module 01
+```
+
+Rules: imperative mood ("add exercise" not "added exercise"), subject line under
+72 characters, issue reference in the footer when applicable, one logical change
+per commit.
+
+---
+
+## The Pull Request Process
+
+<Steps>
+1. **Sync your fork** before branching to avoid drift:
+
+   ```bash
+   git fetch upstream
+   git checkout main
+   git merge upstream/main
+   ```
+
+2. **Create your branch** from `main`:
+
+   ```bash
+   git checkout -b fix/module-02-conflict-exercise
+   ```
+
+3. **Make your changes**, committing as you go.
+
+4. **Push to your fork:**
+
+   ```bash
+   git push origin fix/module-02-conflict-exercise
+   ```
+
+5. **Open a Pull Request** against `main` in the upstream repo.
+   Fill out the PR template completely — incomplete PRs may be closed without review.
+   Link the related issue using `Closes #[issue-number]` in the description.
+
+6. **Wait for CI to pass.** The CI pipeline checks Markdown formatting, lints
+   YAML, validates the A2A schema, and runs starter project tests. Fix any
+   failures before requesting review.
+
+7. **Address review feedback** by pushing additional commits to the same branch.
+   Do not close and re-open the PR.
+
+8. **Once approved**, a maintainer will squash-merge your PR. Your commit message
+   will be the PR title — make it descriptive.
+</Steps>
+
+<Aside type="note" title="PR review timeline">
+  Maintainers aim to review PRs within **7 days**. If you haven't heard back
+  in 10 days, add a comment pinging `@maintainers`. We're volunteers and
+  occasionally need a nudge.
+</Aside>
+
+### Draft PRs
+
+If you're still working on something but want early feedback, open the PR as a
+**Draft**. Draft PRs are visible to maintainers but won't be reviewed until you
+mark them ready.
+
+---
+
+## PR Checklist
+
+Before marking your PR ready for review, confirm:
+
+**All PRs:**
+- [ ] Branch name follows the `type/short-description` convention
+- [ ] Commits follow the Conventional Commits format
+- [ ] CI checks are passing
+- [ ] PR is linked to a related issue
+
+**Lesson content changes:**
+- [ ] Content matches the voice and structure in the [Content Style Guide](/contributing/style-guide/)
+- [ ] New commands have been tested and work as described
+- [ ] Any new links point to stable URLs
+
+**New exercises:**
+- [ ] Grounded in the A2A starter project
+- [ ] A corresponding solution is included in `solutions/`
+- [ ] Includes a goal statement, step-by-step instructions, expected output, and a hint
+
+**Security notes:**
+- [ ] Covers exactly one concept
+- [ ] Specifically connected to AI development risk, not generic security advice
+- [ ] Actionable — learners can apply it to the starter project immediately
+- [ ] Between 100–300 words
+
+**Starter project changes:**
+- [ ] No secrets or credentials are hardcoded
+- [ ] `.env.example` is updated for any new environment variables
+- [ ] Unit tests included for new agent logic
+- [ ] All items in the [Agent Contribution Checklist](#contribute-to-the-starter-project) are satisfied
+
+**Translations:**
+- [ ] Follows the directory structure `translations/[language-code]/modules/...`
+- [ ] Only content translated — not code, filenames, or CLI commands
+- [ ] Module is complete, not partial
+
+---
+
+## Security Disclosures
+
+Please do not report security vulnerabilities via public GitHub issues. Use
+[GitHub's private vulnerability reporting](https://github.com/fischer3-net/git-github-security-learning/security/advisories/new)
+instead. We'll acknowledge within 48 hours and aim to resolve within 14 days.
+
+See [SECURITY.md](https://github.com/fischer3-net/git-github-security-learning/blob/main/SECURITY.md)
+for the full policy.
+
+---
+
+## Recognition
+
+All contributors are listed in
+[CONTRIBUTORS.md](https://github.com/fischer3-net/git-github-security-learning/blob/main/CONTRIBUTORS.md).
+
+---
+
+## Related
+
+<LinkCard
+  title="Content Style Guide"
+  description="Voice, formatting rules, and lesson structure for writing and editing course content."
+  href="/contributing/style-guide/"
+/>
+<LinkCard
+  title="Writing Security Notes"
+  description="How to write a focused, actionable security note that connects to real AI development risk."
+  href="/contributing/security-notes/"
+/>
+<LinkCard
+  title="Translating Modules"
+  description="Directory structure, language codes, and what to translate (and what not to)."
+  href="/contributing/translating/"
+/>
+<LinkCard
+  title="Branch Naming Reference"
+  description="Full branch naming guide with examples for every contribution type."
+  href="/reference/branch-naming/"
+/>

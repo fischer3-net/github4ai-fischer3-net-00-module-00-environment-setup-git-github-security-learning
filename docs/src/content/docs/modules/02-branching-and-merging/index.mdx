@@ -1,0 +1,738 @@
+---
+# src/content/docs/modules/02-branching-and-merging/index.mdx
+
+title: "Module 02 · Branching & Merging"
+description: Learn how branches let teams work in parallel without stepping on each other. Create a feature branch to add the Search Agent to the A2A system, experience a real merge conflict, and resolve it with confidence.
+moduleNumber: 2
+duration: "75–90 minutes"
+difficulty: beginner
+hasSecurityNote: true
+securityConcept: "Branch Protection Rules"
+projectStep: "Add the Search Agent via a feature branch and merge it into main"
+prerequisites: ["Module 00 · Environment Setup", "Module 01 · Repositories & Commits"]
+isCore: false
+
+learningObjectives:
+  - Explain what a Git branch is and why branches exist
+  - Create, switch between, and delete branches using git switch and git branch
+  - Follow the feature branch workflow to add the Search Agent to the A2A system
+  - Understand the difference between merging and rebasing
+  - Identify, understand, and resolve a merge conflict
+  - Explain why pushing directly to main is dangerous on a shared project
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+In Module 01, you committed directly to `main`. That works fine when you are
+the only person working on a project — but the moment a second person opens
+the same repository, committing directly to `main` becomes a collision waiting
+to happen.
+
+**Branches** solve this. A branch is a parallel line of development that stays
+isolated from `main` until you're ready to merge it back. You can make fifty
+commits on a branch, break things, experiment, rewrite — and `main` is
+completely unaffected the entire time.
+
+This module has a moment you need to experience to really understand: a **merge
+conflict**. You're going to create one on purpose, read the conflict markers
+Git leaves in your file, and resolve it manually. Merge conflicts look scary
+the first time. By the end of this module they'll just be a thing you fix.
+
+<A2AConnection
+  step="Add the Search Agent via a feature branch"
+  agent="search"
+  files={['agents/search/main.py', 'orchestrator/main.py', '.env.example']}
+>
+  The A2A project currently has one Specialist Agent: the Echo Agent. In this
+  module you'll create a `feature/specialist-agent-search` branch, add the
+  Search Agent, register it in the Orchestrator's agent registry, and merge the
+  branch back into `main`. The merge conflict exercise uses two diverging versions
+  of the agent registry — a realistic scenario that happens any time two people
+  add a new agent at the same time.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### What Is a Branch?
+
+A **branch** is a lightweight, movable pointer to a commit. When you create a
+branch, Git doesn't copy any files — it simply creates a new pointer that starts
+at the same commit you're currently on. As you make new commits on the branch,
+that pointer moves forward independently of `main`.
+
+```
+Before branching:
+
+  A ── B ── C          ← main, HEAD
+                        
+
+After creating feature/specialist-agent-search:
+
+  A ── B ── C          ← main
+             \
+              \        ← feature/specialist-agent-search, HEAD
+
+
+After two commits on the feature branch:
+
+  A ── B ── C          ← main
+             \
+              D ── E   ← feature/specialist-agent-search, HEAD
+```
+
+`main` hasn't changed at all. Someone else could be making commits to `main`
+while you work on your feature branch — those changes won't touch your branch
+until you explicitly merge or rebase.
+
+### `git switch` vs. `git checkout`
+
+Git has two ways to work with branches. This course uses `git switch`, which
+was introduced in Git 2.23 specifically for branch operations. It's cleaner and
+less likely to surprise you than the older `git checkout`.
+
+```bash
+# Create a new branch and switch to it
+git switch -c feature/specialist-agent-search
+
+# Switch to an existing branch
+git switch main
+
+# See all local branches (* marks the current one)
+git branch
+
+# See local and remote branches
+git branch -a
+```
+
+<Aside type="note" title="git checkout still works">
+  `git checkout -b feature/my-branch` is identical to `git switch -c feature/my-branch`.
+  You'll see `checkout` in older tutorials, Stack Overflow answers, and colleagues'
+  muscle memory. Both work — this course uses `switch` because it's explicit about
+  its purpose.
+</Aside>
+
+### The Feature Branch Workflow
+
+The feature branch workflow is the pattern used by the vast majority of
+open-source and professional projects. The steps are always the same:
+
+```
+1. Start from an up-to-date main
+       git switch main
+       git pull origin main
+
+2. Create a feature branch
+       git switch -c feat/your-feature
+
+3. Make commits on the feature branch
+       ... work, work, work ...
+       git add .
+       git commit -m "feat: ..."
+
+4. Push the branch to GitHub
+       git push origin feat/your-feature
+
+5. Open a Pull Request (Module 03)
+       ... review, approval ...
+
+6. Merge into main
+       git switch main
+       git merge feat/your-feature
+
+7. Delete the branch
+       git branch -d feat/your-feature
+       git push origin --delete feat/your-feature
+```
+
+Step 5 — the Pull Request — is the subject of Module 03. In this module you'll
+do the full cycle, but you'll merge locally instead of via a PR. Module 03 adds
+the review and approval layer on top.
+
+### Merge vs. Rebase
+
+When it's time to bring your branch back into `main`, you have two main options:
+
+**`git merge`** creates a new "merge commit" that joins the two branch histories
+together. The original branch commits are preserved exactly as you made them.
+
+```
+Before merge:
+
+  A ── B ── C              ← main
+             \
+              D ── E       ← feature branch
+
+After: git merge feature/...
+
+  A ── B ── C ─────── M   ← main (M is the merge commit)
+             \       /
+              D ── E       ← feature branch
+```
+
+**`git rebase`** replays your branch commits on top of `main` as if you had
+branched off from the latest commit. The history looks linear — no merge commit.
+
+```
+Before rebase:
+
+  A ── B ── C              ← main
+             \
+              D ── E       ← feature branch
+
+After: git rebase main (from feature branch)
+
+  A ── B ── C ── D' ── E' ← feature branch (D and E replayed as D', E')
+```
+
+| | Merge | Rebase |
+|--|-------|--------|
+| History | Preserved as-is, shows branching | Linear, cleaner log |
+| Merge commit | Yes | No |
+| Safe on shared branches | ✅ Yes | ⚠️ Only on your own branches |
+| Good for | Feature branches, PRs | Keeping a local branch current |
+
+<Aside type="caution" title="Never rebase a shared branch">
+  Rebase rewrites commit history — it creates new commits with new SHAs to
+  replace the old ones. If you rebase a branch that other people have already
+  pulled, their local copies will have the old commits and yours will have the
+  new ones. Git can no longer reconcile them cleanly. The rule: **only rebase
+  commits that exist on your machine and nowhere else.**
+</Aside>
+
+### What Is a Merge Conflict?
+
+A merge conflict happens when two branches have each made changes to the **same
+lines of the same file** and Git can't automatically decide which version to keep.
+
+Git pauses the merge and marks the conflicting sections in your file:
+
+```python
+<<<<<<< HEAD
+    "echo": os.getenv("ECHO_AGENT_URL", "http://localhost:8001"),
+=======
+    "echo":   os.getenv("ECHO_AGENT_URL", "http://localhost:8001"),
+    "search": os.getenv("SEARCH_AGENT_URL", "http://localhost:8002"),
+>>>>>>> feature/specialist-agent-search
+```
+
+Reading these markers:
+- Everything between `<<<<<<< HEAD` and `=======` is what's in your **current branch** (`main`)
+- Everything between `=======` and `>>>>>>> feature/specialist-agent-search` is what's in the **branch being merged in**
+- Your job: edit the file to the version you want, remove all three marker lines, stage and commit
+
+---
+
+## Exercise
+
+### Part 1 — Prepare Your Branch
+
+<Steps>
+1. Make sure you're on `main` and fully up to date:
+
+   ```bash
+   cd ~/github-for-ai-builders/starter-project/python
+   git switch main
+   git pull origin main
+   ```
+
+2. Check your current branch:
+
+   ```bash
+   git branch
+   ```
+
+   You should see `* main` — the asterisk marks the active branch.
+
+3. Create the feature branch:
+
+   ```bash
+   git switch -c feature/specialist-agent-search
+   ```
+
+4. Confirm you switched:
+
+   ```bash
+   git branch
+   ```
+
+   Now `* feature/specialist-agent-search` is active and `main` is listed
+   below it.
+
+5. Look at the commit history — both branches currently point at the same commit:
+
+   ```bash
+   git log --oneline --graph
+   ```
+</Steps>
+
+---
+
+### Part 2 — Add the Search Agent
+
+<Steps>
+1. Inspect the Search Agent file that's already in the project — it was
+   written in Module 00's setup but never committed on a feature branch:
+
+   ```bash
+   cat agents/search/main.py
+   ```
+
+   Read through the file. Notice the `mock_search()` function and the
+   `MOCK_RESULTS` dictionary — this is the Search Agent's "knowledge base"
+   for now.
+
+2. Stage and commit the Search Agent:
+
+   ```bash
+   git add agents/search/main.py
+   git commit -m "feat(search-agent): add mock search specialist agent
+
+   Implements a keyword-based mock search agent that returns
+   predefined results for known topics (pull requests, git branches,
+   github actions, codespaces, gitignore).
+
+   Mock implementation keeps Module 02 focused on branching concepts
+   rather than API credential management. Real search integration
+   is a suggested Capstone extension."
+   ```
+
+3. Now register the Search Agent in the Orchestrator. Open
+   `orchestrator/main.py` and find the `AGENT_REGISTRY` dictionary:
+
+   ```python
+   AGENT_REGISTRY: dict[str, str] = {
+       "echo": os.getenv("ECHO_AGENT_URL", "http://localhost:8001"),
+   }
+   ```
+
+   Add the `search` entry so it reads:
+
+   ```python
+   AGENT_REGISTRY: dict[str, str] = {
+       "echo":   os.getenv("ECHO_AGENT_URL",   "http://localhost:8001"),
+       "search": os.getenv("SEARCH_AGENT_URL", "http://localhost:8002"),
+   }
+   ```
+
+4. Commit the registry update:
+
+   ```bash
+   git add orchestrator/main.py
+   git commit -m "feat(orchestrator): register search agent in routing table"
+   ```
+
+5. Also update `.env.example` to document the new variable. Open it and
+   add the Search Agent URL below the Echo Agent URL:
+
+   ```bash
+   SEARCH_AGENT_URL=http://localhost:8002
+   ```
+
+   Commit it:
+
+   ```bash
+   git add .env.example
+   git commit -m "chore(config): add SEARCH_AGENT_URL to env example"
+   ```
+
+6. Look at your branch history now:
+
+   ```bash
+   git log --oneline --graph
+   ```
+
+   You should see your three new commits sitting above the original
+   project history, all on `feature/specialist-agent-search`.
+</Steps>
+
+---
+
+### Part 3 — Test the Search Agent
+
+Before merging, verify that what you just added actually works.
+
+<Steps>
+1. Open two terminal tabs. In the first, start the Search Agent:
+
+   ```bash
+   python agents/search/main.py
+   ```
+
+2. In the second terminal, send a test request directly to the agent:
+
+   ```bash
+   curl -X POST http://localhost:8002/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "search", "input": "What is a pull request?"}'
+   ```
+
+   You should see a JSON response with `"status": "success"` and a
+   description of pull requests in the `"output"` field.
+
+3. Now test routing through the Orchestrator. In a third terminal,
+   start the Orchestrator:
+
+   ```bash
+   python orchestrator/main.py
+   ```
+
+4. Route a search task through the Orchestrator:
+
+   ```bash
+   curl -X POST http://localhost:8000/run \
+     -H "Content-Type: application/json" \
+     -d '{"task": "search", "input": "How does GitHub Actions work?"}'
+   ```
+
+   The Orchestrator should route to the Search Agent and return a result.
+   The journey: your request → Orchestrator (8000) → Search Agent (8002)
+   → response back through the Orchestrator → your terminal. ✅
+</Steps>
+
+---
+
+### Part 4 — Push the Branch
+
+<Steps>
+1. Push the feature branch to GitHub:
+
+   ```bash
+   git push origin feature/specialist-agent-search
+   ```
+
+2. Navigate to your fork on GitHub:
+   `https://github.com/YOUR-USERNAME/git-github-security-learning`
+
+3. GitHub will show a banner: **"feature/specialist-agent-search had recent
+   pushes — Compare & pull request"**. Don't click it yet — we'll use the
+   PR workflow in Module 03. For now, just observe that GitHub detected
+   your branch automatically.
+
+4. Click the branch dropdown (it shows `main` by default) and select
+   `feature/specialist-agent-search`. Browse your commits. Notice that
+   `main` still shows the original files — your changes are completely
+   isolated on the feature branch.
+</Steps>
+
+---
+
+### Part 5 — Create a Merge Conflict (On Purpose)
+
+This is the important part. You're going to simulate what happens when two
+people add different agents at the same time.
+
+<Steps>
+1. Switch back to `main`:
+
+   ```bash
+   git switch main
+   ```
+
+2. Make a change to the **same lines** you just modified on the feature
+   branch. Pretend you're a second developer who just added a "calculate"
+   agent directly on `main`:
+
+   ```bash
+   code orchestrator/main.py
+   ```
+
+   Find the `AGENT_REGISTRY` dictionary (it still shows only `echo` on `main`)
+   and edit it to add a calculate agent:
+
+   ```python
+   AGENT_REGISTRY: dict[str, str] = {
+       "echo":      os.getenv("ECHO_AGENT_URL",      "http://localhost:8001"),
+       "calculate": os.getenv("CALCULATE_AGENT_URL", "http://localhost:8003"),
+   }
+   ```
+
+3. Commit this change to `main`:
+
+   ```bash
+   git add orchestrator/main.py
+   git commit -m "feat(orchestrator): register calculate agent"
+   ```
+
+4. Now look at the diverged history:
+
+   ```bash
+   git log --oneline --graph --all
+   ```
+
+   You should see two branches diverging from the same point — `main` has
+   the calculate agent, `feature/specialist-agent-search` has the search agent.
+   Neither knows about the other's change.
+
+5. Attempt the merge:
+
+   ```bash
+   git merge feature/specialist-agent-search
+   ```
+
+   Git will output something like:
+
+   ```
+   Auto-merging orchestrator/main.py
+   CONFLICT (content): Merge conflict in orchestrator/main.py
+   Automatic merge failed; fix conflicts and then commit the result.
+   ```
+
+   This is not an error. This is Git doing exactly what it should —
+   pausing and asking you to make a decision it can't make for you.
+</Steps>
+
+---
+
+### Part 6 — Resolve the Conflict
+
+<Steps>
+1. Check the current state:
+
+   ```bash
+   git status
+   ```
+
+   `orchestrator/main.py` appears under **"both modified"** — this is the
+   conflicted file.
+
+2. Open the conflicted file:
+
+   ```bash
+   code orchestrator/main.py
+   ```
+
+3. Find the conflict markers. They'll look like this:
+
+   ```python
+   AGENT_REGISTRY: dict[str, str] = {
+   <<<<<<< HEAD
+       "echo":      os.getenv("ECHO_AGENT_URL",      "http://localhost:8001"),
+       "calculate": os.getenv("CALCULATE_AGENT_URL", "http://localhost:8003"),
+   =======
+       "echo":   os.getenv("ECHO_AGENT_URL",   "http://localhost:8001"),
+       "search": os.getenv("SEARCH_AGENT_URL", "http://localhost:8002"),
+   >>>>>>> feature/specialist-agent-search
+   }
+   ```
+
+4. Decide what the final version should be. In this case, **both** agents
+   should be registered — we want `main` to include all three:
+
+   ```python
+   AGENT_REGISTRY: dict[str, str] = {
+       "echo":      os.getenv("ECHO_AGENT_URL",      "http://localhost:8001"),
+       "search":    os.getenv("SEARCH_AGENT_URL",    "http://localhost:8002"),
+       "calculate": os.getenv("CALCULATE_AGENT_URL", "http://localhost:8003"),
+   }
+   ```
+
+   **Remove all three marker lines** (`<<<<<<<`, `=======`, `>>>>>>>`).
+   None of them should appear in the final file.
+
+5. Save the file and confirm no markers remain:
+
+   ```bash
+   grep -n "<<<<<<\|=======\|>>>>>>" orchestrator/main.py
+   ```
+
+   This command should return no output. If it returns anything, you
+   missed a marker.
+
+6. Stage the resolved file:
+
+   ```bash
+   git add orchestrator/main.py
+   ```
+
+7. Complete the merge:
+
+   ```bash
+   git commit -m "merge: combine search and calculate agent registrations
+
+   Resolved conflict in AGENT_REGISTRY between:
+   - feature/specialist-agent-search (added search agent)
+   - main (added calculate agent)
+
+   Both agents are now registered. The calculate agent is a
+   placeholder — implementation PR to follow."
+   ```
+
+8. Look at your history now:
+
+   ```bash
+   git log --oneline --graph
+   ```
+
+   You'll see the merge commit (marked with a `\` and `/` junction in the
+   graph) joining the two branch histories together. This is a merge commit —
+   the permanent record that these two lines of development were reconciled.
+</Steps>
+
+<Aside type="tip" title="VS Code makes conflict resolution visual">
+  If you open a conflicted file in VS Code, it highlights the conflict regions
+  and offers clickable options: **Accept Current Change**, **Accept Incoming
+  Change**, **Accept Both Changes**, and **Compare Changes**. For simple
+  conflicts these are useful shortcuts. For complex conflicts, editing the file
+  manually (as you did above) gives you more control over the final result.
+</Aside>
+
+---
+
+### Part 7 — Clean Up
+
+<Steps>
+1. Now that the feature branch is merged, delete it locally:
+
+   ```bash
+   git branch -d feature/specialist-agent-search
+   ```
+
+   The `-d` flag only deletes branches that have been fully merged.
+   Git will refuse if you haven't merged. Use `-D` (capital) to force
+   delete an unmerged branch — but be careful, that work is gone.
+
+2. Delete the remote branch on GitHub:
+
+   ```bash
+   git push origin --delete feature/specialist-agent-search
+   ```
+
+3. Confirm the local branch list is clean:
+
+   ```bash
+   git branch
+   ```
+
+   Only `main` should remain.
+
+4. Push the updated `main` to GitHub:
+
+   ```bash
+   git push origin main
+   ```
+
+5. Refresh your fork on GitHub and confirm the feature branch is gone
+   from the branch dropdown. The commits from the branch now live in
+   `main`'s history, accessible via the Commits tab.
+</Steps>
+
+---
+
+## Merge Strategies at a Glance
+
+You'll encounter these options when merging PRs on GitHub in Module 03:
+
+| Strategy | What it does | When to use |
+|----------|-------------|-------------|
+| **Merge commit** | Creates a merge commit, preserves full branch history | Default — keeps complete audit trail |
+| **Squash and merge** | Collapses all branch commits into one commit on `main` | When branch has many WIP commits you don't want in `main`'s history |
+| **Rebase and merge** | Replays branch commits on top of `main` linearly | When you want a linear history without merge commits |
+
+This repository's PR template will tell you which strategy to use for each
+contribution type. When in doubt, **merge commit** is the safest choice.
+
+---
+
+## Branch Commands Reference
+
+```bash
+# Create and switch
+git switch -c feature/my-branch     # Create new branch and switch to it
+git switch main                     # Switch to existing branch
+
+# List
+git branch                          # Local branches
+git branch -a                       # Local + remote branches
+git branch -v                       # Branches with their latest commit
+
+# Rename
+git branch -m old-name new-name     # Rename a local branch
+
+# Delete
+git branch -d feature/my-branch     # Delete merged branch (safe)
+git branch -D feature/my-branch     # Force delete (careful!)
+git push origin --delete branch     # Delete remote branch
+
+# Compare
+git log main..feature/my-branch     # Commits on feature not yet in main
+git diff main...feature/my-branch   # Changes on feature since branching off main
+
+# Update a branch with latest main (without merging)
+git fetch origin
+git rebase origin/main              # Replay your branch commits on top of latest main
+```
+
+---
+
+<SecurityNote concept="Branch Protection Rules" module={2} deepDive="branch-protection">
+  In this module you committed directly to `main` to simulate a second developer's
+  change — but on a real shared repository, that shortcut would be dangerous.
+  Without branch protection, anyone with write access can push to `main` at any
+  time, bypassing review entirely.
+
+  **Branch protection rules** lock `main` (and any other important branches)
+  so that all changes must arrive via a reviewed, CI-passing Pull Request.
+  You configure them under **Repository Settings → Branches → Branch protection
+  rules** (or the newer **Rulesets** interface).
+
+  Common rules to enable for `main`:
+
+  - **Require a pull request before merging** — no direct pushes
+  - **Require approvals** — at least one reviewer must approve
+  - **Require status checks to pass** — CI must be green before merge
+  - **Require branches to be up to date** — prevents merging stale branches
+  - **Restrict who can push** — limits direct merge access to maintainers
+
+  For an AI agent project, these rules matter especially because an agent
+  contribution that bypasses review could introduce a prompt injection
+  vulnerability, an insecure deserialization path, or a dependency with a
+  known CVE — and it would land directly in `main` without anyone checking.
+
+  Module 03 covers Pull Requests and the review process. Module 06 covers
+  setting up branch protection rules and CODEOWNERS as part of the full
+  security configuration.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Learned that a **branch** is a lightweight pointer to a commit, not a copy of files
+- Used `git switch -c` to create the `feature/specialist-agent-search` branch and worked entirely in isolation from `main`
+- Added the **Search Agent** to the A2A system and registered it with the Orchestrator — the system now routes two task types
+- Tested the full routing chain: client → Orchestrator → Search Agent → response
+- **Created a merge conflict on purpose** by simulating two developers adding different agents to the same registry at the same time
+- Read and resolved conflict markers manually, keeping both agents in the final result
+- Cleaned up by deleting the feature branch locally and on GitHub after merging
+- Understood the difference between **merge**, **squash and merge**, and **rebase and merge**
+
+Merge conflicts are one of the things developers fear most before they've resolved one. Now you've done it deliberately, which means the next time one appears unexpectedly you'll recognize it immediately and know exactly what to do.
+
+---
+
+## What's Next
+
+**[Module 03 · Pull Requests & Code Review →](/modules/03-pull-requests/)**
+
+You'll open your first Pull Request, write a PR description that communicates
+intent clearly, request a review, and learn what security-aware code review
+looks like for an AI agent project.

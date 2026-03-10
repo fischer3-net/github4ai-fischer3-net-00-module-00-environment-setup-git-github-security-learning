@@ -1,0 +1,107 @@
+name: "📝 Lesson Error or Improvement"
+description: "Report an inaccurate explanation, broken command, outdated screenshot, or unclear content in a module."
+title: "[Lesson Error] Module XX — Short description"
+labels: ["lesson-error", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve this course! Please fill out as much detail as you can.
+        For typos or broken links, you're welcome to skip this form and open a PR directly.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Which module is affected?
+      options:
+        - "Module 00 — Environment Setup"
+        - "Module 01 — Repositories & Commits"
+        - "Module 02 — Branching & Merging"
+        - "Module 03 — Pull Requests & Code Review"
+        - "Module 04 — Issues, Projects & Discussions"
+        - "Module 05 — GitHub Actions & CI/CD"
+        - "Module 06 — Security on GitHub"
+        - "Module 07 — Collaboration at Scale"
+        - "Module 08 — Packages, Releases & Pages"
+        - "Module 09 — Capstone Project"
+        - "Starter Project (Python)"
+        - "Starter Project (Node.js)"
+        - "docs/ (Facilitator Guide, Course Guide, Glossary)"
+        - "Other / Multiple Modules"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: error-type
+    attributes:
+      label: What type of issue is this?
+      options:
+        - "Inaccurate or incorrect explanation"
+        - "Broken or incorrect command / code"
+        - "Outdated screenshot or UI reference"
+        - "Unclear or confusing explanation"
+        - "Broken link"
+        - "Typo or grammar"
+        - "Missing content (something important isn't covered)"
+        - "Security note issue"
+        - "Exercise or solution issue"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Exact file location
+      description: "Path to the file, e.g. `modules/03-pull-requests/README.md` or a link to the specific line on GitHub"
+      placeholder: "modules/XX-module-name/README.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: What does the content currently say?
+      description: "Quote the specific text, command, or describe the screenshot that has the issue."
+      placeholder: "Currently the README says: `git commit -a -m 'message'`..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: correct-content
+    attributes:
+      label: What should it say or show instead?
+      description: "If you know the correct content, please provide it. If you're not sure, describe what's confusing and we'll figure it out together."
+      placeholder: "The correct command is... / This is confusing because..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: "Anything else that would help — your environment, GitHub version, what you were trying to do when you noticed this, etc."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you like to fix this yourself?
+      options:
+        - label: "Yes — I'd like to open a PR with the fix (a maintainer will assign this issue to me)"
+        - label: "No — I'm reporting it for someone else to fix"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: "I searched existing issues and this hasn't been reported before"
+          required: true
+        - label: "I've identified the specific file and location of the issue"
+          required: true

@@ -1,0 +1,9 @@
+{
+  "task": "search",
+  "input": "What is a GitHub pull request?",
+  "context": {
+    "source": "orchestrator",
+    "routed_by": "keyword"
+  },
+  "request_id": "550e8400-e29b-4d8d-a456-426614174001"
+}

