@@ -1,0 +1,780 @@
+---
+# src/content/docs/modules/06-security/index.mdx
+
+title: "Module 06 · Security on GitHub"
+description: Enable the full GitHub security suite on the A2A project. Configure Dependabot alerts, Secret Scanning, CodeQL code scanning, and branch rulesets. Write a CODEOWNERS file that routes AI agent PRs to the right reviewers automatically.
+moduleNumber: 6
+duration: "90–120 minutes"
+difficulty: intermediate
+hasSecurityNote: true
+securityConcept: "Supply Chain Security for AI Projects"
+projectStep: "Enable the full GitHub security suite and write CODEOWNERS for the A2A project"
+prerequisites: ["Module 03 · Pull Requests & Code Review", "Module 05 · GitHub Actions & CI/CD"]
+isCore: false
+
+learningObjectives:
+  - Enable and interpret Dependabot dependency alerts and version updates
+  - Explain what Secret Scanning does and how to respond to an alert
+  - Read the CodeQL workflow and understand what the security-extended query suite catches
+  - Write a CODEOWNERS file that routes pull requests to appropriate reviewers
+  - Configure branch protection rulesets using the modern GitHub interface
+  - Explain what a Software Bill of Materials (SBOM) is and why it matters for AI projects
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+Modules 00 through 05 built the A2A project and its CI pipeline. Every change
+is tested before it merges. That's necessary — but it's not sufficient for
+a project that other people will depend on and deploy.
+
+This module activates GitHub's **security layer**: the tools that run
+continuously in the background, watching for problems you didn't know to
+test for. Dependency vulnerabilities discovered after you pinned a version.
+A secret accidentally committed in a PR that CI didn't catch. A coding pattern
+in a new agent that matches a known attack vector. A PR to a security-sensitive
+file that bypassed the right reviewer.
+
+GitHub provides all of this out of the box. Most of it is free for public
+repositories. Almost none of it requires writing code — it's configuration.
+This module shows you where the switches are and what flipping them actually
+does.
+
+<A2AConnection
+  step="Enable the full GitHub security suite"
+  files={[
+    '.github/dependabot.yml',
+    '.github/workflows/codeql.yml',
+    'CODEOWNERS',
+    'SECURITY.md'
+  ]}
+>
+  The A2A project already has `dependabot.yml` configured for version updates
+  and `codeql.yml` built as a teaching artifact. In this module you'll activate
+  the remaining security features — Dependabot alerts, Secret Scanning, the
+  Security Overview dashboard — and write the `CODEOWNERS` file that ensures
+  any PR touching an agent's routing or authentication logic gets reviewed by
+  someone who knows what to look for.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### GitHub's Security Layer — An Overview
+
+GitHub's security features stack on top of each other. Think of them as
+concentric rings of defence:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  SUPPLY CHAIN                                       │
+│  Dependabot version updates · SBOM · Sigstore       │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  VULNERABILITY DETECTION                    │   │
+│  │  Dependabot alerts · CodeQL · Secret Scan   │   │
+│  │  ┌─────────────────────────────────────┐   │   │
+│  │  │  ACCESS CONTROL                     │   │   │
+│  │  │  Branch rulesets · CODEOWNERS       │   │   │
+│  │  │  ┌─────────────────────────────┐   │   │   │
+│  │  │  │  CI PIPELINE               │   │   │   │
+│  │  │  │  Tests · Lint · Schema      │   │   │   │
+│  │  │  └─────────────────────────────┘   │   │   │
+│  │  └─────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+Module 05 built the innermost ring. This module builds everything outside it.
+
+### Dependabot: Two Distinct Features
+
+Dependabot does two different things that are easy to conflate:
+
+**Dependabot version updates** — opens PRs to keep dependencies current.
+This is what `dependabot.yml` configures. You saw this in Module 04 and
+earlier when approving the queued PRs.
+
+**Dependabot alerts** — watches your dependency graph for *known
+vulnerabilities* (CVEs) and notifies you when a dependency you're using
+has a published security advisory. This is separate from version updates —
+it fires even if you never configured `dependabot.yml`.
+
+| | Version Updates | Alerts |
+|--|----------------|--------|
+| Configured by | `dependabot.yml` | Repository Settings → Security |
+| What it does | Opens PRs to bump versions | Notifies of CVEs in current deps |
+| Where results appear | Pull Requests tab | Security tab → Dependabot |
+| Action required | Merge the PR | Update the vulnerable dependency |
+
+### Secret Scanning
+
+Secret Scanning scans every commit pushed to your repository for patterns
+that match known secret formats — API keys, tokens, private keys. GitHub
+maintains a list of hundreds of patterns from cloud providers, payment
+processors, and other services.
+
+When a match is found:
+- GitHub notifies the repository administrators immediately
+- For supported partners (AWS, GitHub, Stripe, etc.), GitHub also notifies
+  the provider, who may auto-revoke the secret
+- The alert appears in **Security tab → Secret scanning**
+
+<Aside type="caution" title="Secret Scanning is not a safety net — it's a last resort">
+  By the time Secret Scanning fires, the secret is already in your git history
+  and potentially already compromised. The `.gitignore` patterns from Module 00
+  and the `.env.example` convention are your real first line of defence.
+  Secret Scanning catches what slips through.
+</Aside>
+
+For AI projects, Secret Scanning is particularly valuable because the project
+tends to accumulate keys quickly — OpenAI API keys, search API keys, embedding
+service tokens. Any of these committed accidentally is a billing and data
+exposure risk.
+
+### CodeQL: Code as Data
+
+CodeQL is GitHub's static analysis engine. Rather than pattern-matching on
+text like a linter, CodeQL parses your code into a queryable database and
+runs security queries against it. A query like "find all places where
+user-controlled HTTP request data flows into a SQL query without sanitisation"
+can traverse an entire call graph — something text search cannot do.
+
+The A2A project's `codeql.yml` uses the `security-extended` query suite, which
+includes queries beyond the defaults. For an AI agent project, the most relevant
+query categories are:
+
+| Category | What it catches |
+|----------|----------------|
+| Injection | User input flowing into shell commands, SQL, or eval() |
+| Path traversal | File paths constructed from user input |
+| SSRF | URLs constructed from user input and used in HTTP requests |
+| Unsafe deserialization | Untrusted data parsed without schema validation |
+| Cleartext logging | Sensitive data written to log output |
+
+Results appear in **Security tab → Code scanning → CodeQL**. Each finding
+shows the exact line, the data flow path that produced it, and a remediation
+suggestion.
+
+### CODEOWNERS
+
+A `CODEOWNERS` file maps file patterns to GitHub users or teams. When a PR
+touches a file matching a pattern, the listed owners are automatically added
+as required reviewers.
+
+```
+# Syntax: <pattern>  <owner> [<owner2> ...]
+
+# The entire repo — catch-all
+*                          @org/maintainers
+
+# All workflow files require security review
+.github/workflows/         @org/security-team
+
+# Agent code — any new agent needs A2A architecture review
+starter-project/           @org/a2a-reviewers
+
+# The Orchestrator's routing table is security-sensitive
+starter-project/python/orchestrator/    @org/lead-engineers
+starter-project/nodejs/orchestrator/   @org/lead-engineers
+```
+
+Rules:
+- Later patterns override earlier ones — more specific patterns win
+- `@username` for individuals, `@org/team-name` for teams
+- The file must be in the repo root, `docs/`, or `.github/`
+- CODEOWNERS only works when **Require review from Code Owners** is
+  enabled in branch protection
+
+### Branch Rulesets (Modern Branch Protection)
+
+GitHub has two branch protection interfaces:
+
+**Classic branch protection rules** — the original interface under
+Settings → Branches. Works well but is limited to individual rules
+per branch pattern.
+
+**Rulesets** — the modern interface, more flexible. Supports multiple
+rules in a named ruleset, can apply to multiple branches at once, and
+supports "bypass actors" (users who can bypass the rules in emergencies).
+
+For this module you'll use Rulesets. The key rules for `main`:
+
+| Rule | What it enforces |
+|------|-----------------|
+| Require a pull request | No direct pushes to `main` |
+| Required approvals | Minimum number of approving reviews |
+| Require status checks | CI Gate must pass |
+| Require up-to-date branches | Branch must be current with `main` |
+| Require code owner review | CODEOWNERS entries must approve |
+| Block force pushes | Nobody can rewrite `main` history |
+
+---
+
+## Exercise
+
+### Part 1 — Enable Dependabot Alerts
+
+<Steps>
+1. Go to your repository → **Settings** → **Code security**.
+
+2. Find **Dependabot** in the list. Enable both:
+   - **Dependency graph** — must be on for alerts to work
+   - **Dependabot alerts** — notifies you of known CVEs
+
+3. Click **Enable** on both. GitHub immediately scans your existing
+   dependencies and generates alerts if any match known advisories.
+
+4. Navigate to **Security tab → Dependabot**. You may see alerts
+   immediately if any pinned dependency has a known CVE.
+
+5. Click into an alert (if any exist). Read the advisory:
+   - The CVE number and severity (Critical / High / Medium / Low)
+   - The vulnerable version range
+   - The fixed version
+   - The recommended action (usually: update to the patched version)
+
+6. Even if there are no alerts, examine the **Dependency graph** tab
+   (`Insights → Dependency graph`). It shows every dependency your
+   project has declared, organised by ecosystem. For an AI project
+   with transitive dependencies running several levels deep, this
+   graph is the first place you look when a new CVE is announced.
+</Steps>
+
+<Aside type="note" title="Dependabot version updates vs. alerts">
+  Your `dependabot.yml` was already configured in the project setup — it
+  handles version updates (opening PRs). What you just enabled is the
+  separate **alert** system that watches for CVEs in your current pinned
+  versions. Both are needed; they solve different problems.
+</Aside>
+
+---
+
+### Part 2 — Enable Secret Scanning
+
+<Steps>
+1. Still in **Settings → Code security**, find **Secret scanning**.
+
+2. Enable both:
+   - **Secret scanning** — scans for known secret formats
+   - **Push protection** — *blocks* pushes that contain detected secrets
+     before they even land in the repository
+
+3. Enable **Push protection**. This is the more powerful setting —
+   rather than alerting after a secret is committed, it prevents the
+   push entirely and shows the developer a warning with options:
+   - **Revoke the secret** and push without it
+   - **Mark as a false positive** if it's not actually a secret
+   - **Use in CI** if it's an intentional test fixture value
+
+4. Navigate to **Security tab → Secret scanning**. If any prior commits
+   contain detectable secret patterns, alerts will appear here.
+
+5. Now test push protection deliberately. In your Codespace:
+
+   ```bash
+   git switch -c test/secret-scanning-demo
+   ```
+
+   Create a test file with a fake but pattern-matching API key:
+
+   ```bash
+   cat > /tmp/test-secret.txt << 'EOF'
+   # This is a test — not a real key
+   OPENAI_API_KEY=sk-proj-aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcdefgh
+   EOF
+   cp /tmp/test-secret.txt test-secret-demo.txt
+   git add test-secret-demo.txt
+   git commit -m "test: demonstrate secret scanning push protection"
+   git push origin test/secret-scanning-demo
+   ```
+
+   GitHub will block the push with output like:
+   ```
+   remote: Push cannot contain secrets
+   remote: —— OpenAI API Key ————————————————————
+   remote: locations:
+   remote:   - commit: abc1234
+   remote:     path: test-secret-demo.txt:2
+   ```
+
+6. Clean up — don't leave that file around:
+
+   ```bash
+   git switch main
+   git branch -D test/secret-scanning-demo
+   ```
+</Steps>
+
+---
+
+### Part 3 — Examine the CodeQL Workflow
+
+<Steps>
+1. Open the CodeQL workflow file:
+
+   ```bash
+   code .github/workflows/codeql.yml
+   ```
+
+2. Answer these questions as you read:
+
+   - What **two languages** does CodeQL analyse in this project?
+     Why those two and not others?
+
+   - What query suite is configured? What's the difference between
+     `security-and-quality` (the default) and `security-extended`?
+
+   - What **path filters** are on the `push` and `pull_request` triggers?
+     Why does CodeQL only run when `starter-project/**` changes?
+
+   - The `schedule` trigger runs weekly. A comment explains why —
+     find it and summarise it in your own words.
+
+   - What permission does CodeQL need that `ci.yml` doesn't?
+     Find it in the `permissions:` block.
+
+3. Navigate to **Security tab → Code scanning**. If CodeQL has run
+   (it triggers on push to `main`), findings appear here. Click into
+   any finding to see:
+   - The file and line number
+   - The data flow path that produced the finding
+   - The CWE category (Common Weakness Enumeration)
+   - A remediation recommendation
+
+4. Trigger CodeQL manually to see it run:
+
+   ```bash
+   gh workflow run codeql.yml --ref main
+   gh run list --workflow=codeql.yml --limit 3
+   ```
+
+   CodeQL takes 5–10 minutes to complete — it's doing real analysis,
+   not just linting. You'll see two parallel jobs: one for Python,
+   one for JavaScript/TypeScript.
+</Steps>
+
+---
+
+### Part 4 — Write the CODEOWNERS File
+
+The A2A project has a clear ownership structure: certain files are
+security-sensitive and should require review from someone who understands
+the implications. Write a `CODEOWNERS` file that encodes this.
+
+<Steps>
+1. Create the file in the repository root:
+
+   ```bash
+   code CODEOWNERS
+   ```
+
+2. Write the ownership rules. Read each comment carefully — the reasoning
+   is as important as the syntax:
+
+   ```
+   # CODEOWNERS
+   # ==========================================================
+   # Maps file patterns to required reviewers.
+   # When a PR touches a matching file, listed owners are
+   # automatically requested as reviewers and their approval
+   # is required before merge (when branch protection is enabled).
+   #
+   # Syntax: <pattern>  @owner  [@owner2 ...]
+   # Patterns follow .gitignore rules.
+   # Later rules override earlier ones — more specific wins.
+   #
+   # For solo repositories, use your own @username as the owner.
+   # Replace with @org/team-name when you have a team.
+   # ==========================================================
+
+   # ── Default owner — catches everything not matched below ──
+   *                                          @YOUR-USERNAME
+
+   # ── CI / CD workflows ─────────────────────────────────────
+   # Changes to workflows are security-sensitive: a malicious
+   # workflow modification could exfiltrate secrets or push
+   # code without review.
+   .github/workflows/                         @YOUR-USERNAME
+
+   # ── Dependabot configuration ──────────────────────────────
+   # Controls which dependencies get auto-updated and how.
+   # A misconfigured dependabot.yml could suppress security updates.
+   .github/dependabot.yml                     @YOUR-USERNAME
+
+   # ── Branch protection and CODEOWNERS themselves ───────────
+   # Someone must not be able to weaken security rules by
+   # editing these files in a PR that bypasses review.
+   CODEOWNERS                                 @YOUR-USERNAME
+   SECURITY.md                                @YOUR-USERNAME
+
+   # ── A2A Orchestrator (routing logic) ──────────────────────
+   # The Orchestrator's routing table determines which agents
+   # receive which inputs. A change here could cause the system
+   # to route sensitive data to an unintended agent.
+   starter-project/python/orchestrator/       @YOUR-USERNAME
+   starter-project/nodejs/orchestrator/       @YOUR-USERNAME
+
+   # ── Shared models / schema ────────────────────────────────
+   # The A2A message schema is the contract between all agents.
+   # Changes here affect every agent simultaneously.
+   starter-project/schema/                    @YOUR-USERNAME
+   starter-project/python/models.py           @YOUR-USERNAME
+   starter-project/nodejs/models.js           @YOUR-USERNAME
+
+   # ── Documentation security content ───────────────────────
+   # Security notes and the security thread require review to
+   # ensure accuracy — bad security advice is worse than none.
+   docs/src/content/docs/security/            @YOUR-USERNAME
+   ```
+
+3. Replace `@YOUR-USERNAME` with your actual GitHub username throughout.
+
+4. Commit and push:
+
+   ```bash
+   git add CODEOWNERS
+   git commit -m "chore(security): add CODEOWNERS for A2A security-sensitive paths
+
+   Routes automatic review requests for:
+   - GitHub Actions workflows (supply chain risk)
+   - Orchestrator routing logic (agent trust boundary)
+   - A2A message schema (cross-agent contract)
+   - Security documentation (accuracy requirement)"
+   git push origin main
+   ```
+
+5. Test it: create a branch, modify `starter-project/python/orchestrator/main.py`,
+   open a PR, and confirm that your username is automatically added as
+   a required reviewer in the PR sidebar under **Reviewers**.
+</Steps>
+
+---
+
+### Part 5 — Configure Branch Rulesets
+
+<Steps>
+1. Go to **Settings → Rules → Rulesets**.
+
+2. Click **New ruleset → New branch ruleset**.
+
+3. Name it: `Protect main`
+
+4. Set **Enforcement status** to `Active`.
+
+5. Under **Target branches**, click **Add target → Include by pattern**
+   and type `main`.
+
+6. Enable these rules:
+
+   **Restrict deletions** — nobody can delete `main`.
+
+   **Require linear history** — prevents merge commits that bypass
+   the branch protection (optional but clean). Leave this off if you
+   prefer merge commits.
+
+   **Require a pull request before merging**:
+   - Required approvals: `1`
+   - Check **Dismiss stale pull request approvals when new commits are pushed**
+   - Check **Require review from Code Owners**
+
+   **Require status checks to pass**:
+   - Click **Add checks** and type `CI Gate` — select it from the dropdown
+   - Check **Require branches to be up to date before merging**
+
+   **Block force pushes** — prevents `git push --force` to `main`.
+
+7. Under **Bypass list**, add yourself with **Repository admin** role.
+   This gives you an emergency bypass — for example, to fix a broken
+   `main` directly if the CI pipeline itself is broken.
+
+8. Click **Create**. The ruleset is now active.
+
+9. Verify it's working. Try pushing directly to `main`:
+
+   ```bash
+   echo "# test" >> README.md
+   git add README.md
+   git commit -m "test: direct push to main (should be blocked)"
+   git push origin main
+   ```
+
+   You should see:
+   ```
+   remote: error: GH013: Repository rule violations found for refs/heads/main.
+   remote: - Changes must be made through a pull request.
+   ```
+
+   Revert the local commit:
+   ```bash
+   git reset HEAD~1
+   git restore README.md
+   ```
+</Steps>
+
+---
+
+### Part 6 — Enable the Security Overview Dashboard
+
+<Steps>
+1. Navigate to the **Security** tab of your repository.
+
+2. The Security Overview shows the status of all security features
+   at a glance. Confirm each feature shows as enabled:
+   - ✅ Dependabot alerts
+   - ✅ Dependabot security updates
+   - ✅ Secret scanning
+   - ✅ Push protection
+   - ✅ Code scanning (CodeQL)
+
+3. Click **Security advisories** in the left sidebar. This is where
+   you manage private vulnerability reports — the private coordination
+   channel we discussed in Module 04. Note the **New draft advisory**
+   button: if you need to disclose a vulnerability you've fixed, you
+   draft it here before publishing.
+
+4. Click **Policy** in the left sidebar. It links to your `SECURITY.md`.
+   GitHub automatically surfaces this to anyone who clicks the
+   **Report a vulnerability** button — the flow works end-to-end.
+</Steps>
+
+---
+
+### Part 7 — Understand the SBOM in `release.yml`
+
+You won't run a release in this module, but you'll read the SBOM
+generation step in the release workflow — it's a Module 06 security
+concept, even though it's triggered in Module 08.
+
+<Steps>
+1. Open the release workflow:
+
+   ```bash
+   code .github/workflows/release.yml
+   ```
+
+2. Find the `generate-sbom` job. It uses the Anchore `sbom-action`
+   to generate an SPDX-format SBOM from the repository contents.
+
+3. Answer these questions:
+   - What format is the SBOM output in? (`spdx-json`) What other
+     formats exist? (CycloneDX is the main alternative.)
+   - The SBOM is uploaded as a release artifact. Where does it appear
+     when you look at a GitHub Release page?
+   - The `build-and-push` job also has `sbom: true` in the
+     Docker build step. What's the difference between an image-level
+     SBOM and a repository-level SBOM?
+
+4. Now understand why SBOMs matter for AI projects specifically.
+   Run this command against the Python starter project to see what
+   a dependency tree looks like:
+
+   ```bash
+   cd starter-project/python
+   pip install pipdeptree --break-system-packages 2>/dev/null || true
+   pipdeptree 2>/dev/null | head -40
+   ```
+
+   You'll see that `fastapi` alone pulls in `starlette`, `pydantic`,
+   `anyio`, `httpx` and more — each with their own transitive
+   dependencies. An SBOM captures all of these, not just the
+   top-level `requirements.txt` entries. When a new CVE is announced
+   in a transitive dependency, a machine-readable SBOM is how you
+   know within minutes whether you're affected.
+</Steps>
+
+---
+
+## Security Features Quick Reference
+
+<Tabs>
+  <TabItem label="Dependabot">
+    ```
+    Two features — don't confuse them:
+
+    Version Updates (dependabot.yml)
+    ├── Opens PRs to bump dependency versions
+    ├── Configured per-ecosystem in dependabot.yml
+    ├── Groups minor/patch into single PR (recommended)
+    └── Dependabot auto-merge workflow handles approval
+
+    Alerts (Settings → Code Security)
+    ├── Watches for CVEs in your current pinned versions
+    ├── Fires even with no dependabot.yml configured
+    ├── Severity: Critical / High / Medium / Low
+    └── Action: bump to the patched version
+
+    Both are needed. They're independent.
+    ```
+  </TabItem>
+  <TabItem label="Secret Scanning">
+    ```
+    Two modes:
+
+    Alert mode (default)
+    └── Scans all commits for secret patterns
+        Notifies repo admins when found
+        Notifies the provider (AWS, GitHub, etc.)
+        Action required: revoke the secret
+
+    Push protection (enable this too)
+    └── Blocks the push before it lands
+        Shows developer options at push time
+        Prevents the secret entering history at all
+        Better than alert mode — fires earlier
+
+    What it catches:
+    - Cloud provider keys (AWS, GCP, Azure)
+    - GitHub tokens (classic and fine-grained)
+    - OpenAI, Anthropic, and other AI API keys
+    - Stripe, Twilio, and other service keys
+    - SSH private keys and TLS certificates
+    ```
+  </TabItem>
+  <TabItem label="CodeQL">
+    ```
+    Query suites (configure in codeql.yml):
+    - default          — common, low false-positive queries
+    - security-extended — more queries, some false positives
+    - security-and-quality — adds code quality queries too
+
+    A2A-relevant query categories:
+    - Injection         — input → exec/eval/shell
+    - SSRF              — input → HTTP request URL
+    - Unsafe deserialization — untrusted → parse
+    - Path traversal    — input → file path
+    - Cleartext logging — secrets → log output
+
+    Where results appear:
+    Security tab → Code scanning → CodeQL
+
+    Results include:
+    - File + line number
+    - Full data flow path (source → sink)
+    - CWE classification
+    - Remediation guidance
+    ```
+  </TabItem>
+  <TabItem label="CODEOWNERS">
+    ```
+    File location: /CODEOWNERS, /docs/CODEOWNERS, or
+                   /.github/CODEOWNERS
+
+    Syntax:
+    <pattern>   @user-or-team
+
+    Pattern rules (same as .gitignore):
+    *            matches anything
+    *.py         all Python files
+    /dir/        everything in dir/
+    /dir/*.py    Python files in dir/ only
+
+    Specificity: later rules win over earlier ones
+    /foo/        @team-a
+    /foo/bar.py  @team-b  ← this file goes to team-b
+
+    Requires in branch protection:
+    "Require review from Code Owners" must be checked
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+<SecurityNote concept="Supply Chain Security for AI Projects" module={6} deepDive="supply-chain">
+  Supply chain security — the practice of verifying the integrity of your
+  dependencies and build tools — matters for every software project. For AI
+  agent projects it carries an additional dimension that's worth understanding.
+
+  **Your agent is only as trustworthy as its dependencies.** The A2A Orchestrator
+  depends on FastAPI, which depends on Starlette, which depends on anyio —
+  and so on several levels deep. Any of these transitive dependencies could
+  contain a malicious package update, a vulnerable version, or a backdoor
+  introduced via a compromised maintainer account. The `dependabot.yml` you
+  already have keeps these current. CodeQL scans the code they contribute.
+  The SBOM generated at release time gives users a machine-readable manifest
+  they can check against the NVD (National Vulnerability Database) themselves.
+
+  **The `actions/` ecosystem is part of your supply chain.** GitHub Actions
+  actions are code that runs on your infrastructure with access to your secrets.
+  Module 05 explained SHA pinning — pinning every `uses:` to a commit SHA
+  rather than a mutable tag. Dependabot's `github-actions` ecosystem
+  automatically opens PRs to update those SHAs. This is the cycle: pin for
+  immutability, let Dependabot update the pin, auto-merge patches, manually
+  review majors.
+
+  **AI-specific supply chain risks differ from traditional software.** When a
+  traditional application dependency is compromised, the attack surface is
+  typically code execution or data exfiltration during the build or at runtime.
+  An AI agent project has the same risks *plus*: a compromised dependency could
+  modify the prompts sent to an LLM, inject instructions into the agent's
+  context window, or intercept and modify the responses before they reach the
+  Orchestrator. These attack vectors don't appear in traditional SAST tools.
+  They're caught by careful code review (Module 03), strict schema validation
+  on all inter-agent messages (the A2A models.py), and a principle that no
+  dependency should have write access to the prompt construction pipeline
+  without explicit, reviewed justification.
+
+  The combination you've set up in this module — Dependabot alerts and version
+  updates, Secret Scanning with push protection, CodeQL with the
+  `security-extended` suite, CODEOWNERS on the Orchestrator and schema files,
+  branch rulesets requiring CI Gate and code owner approval — is a genuine
+  defence-in-depth configuration. Each layer catches different things. None
+  of them alone is sufficient. All of them together make this project
+  significantly harder to compromise than the average open-source repository.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Enabled **Dependabot alerts** and understood the difference between alerts
+  (CVE notifications) and version updates (dependency bump PRs)
+- Enabled **Secret Scanning** and **push protection**, and saw push protection
+  block a commit containing a fake API key pattern
+- Read `codeql.yml` and understood what the `security-extended` query suite
+  catches for an AI agent project — injection, SSRF, unsafe deserialization,
+  path traversal, and cleartext logging
+- Wrote a **`CODEOWNERS` file** that routes PRs touching the Orchestrator,
+  the A2A schema, CI workflows, and security documentation to the appropriate
+  reviewer automatically
+- Configured **branch rulesets** on `main` requiring a PR, one approval, code
+  owner review, and the CI Gate status check — with a bypass for emergency
+  admin access
+- Confirmed the **Security Overview dashboard** shows all features as enabled
+- Read the **SBOM generation step** in `release.yml` and understood why a
+  machine-readable dependency manifest matters for AI projects specifically
+
+Every security feature you enabled today runs continuously and automatically.
+The branch rulesets mean no change can reach `main` without passing CI and
+receiving a review. The scanning features mean new vulnerabilities in old code
+are surfaced even when nobody is actively looking. The CODEOWNERS file means
+the right people are always in the review loop for the most sensitive files.
+
+---
+
+## What's Next
+
+**[Module 07 · Collaboration at Scale →](/modules/07-collaboration/)**
+
+You'll simulate the full open-source contribution workflow — fork the upstream
+repository, add a new Specialist Agent, sync your fork when upstream changes,
+and navigate the `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` that make
+large-scale collaboration possible. You'll also use the GitHub CLI to manage
+the entire workflow without leaving your terminal.

@@ -1,0 +1,25 @@
+# .gitignore — Node.js A2A Starter Project
+# MODULE 00 TEACHING REFERENCE: see python/.gitignore for detailed comments
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies — never commit node_modules
+node_modules/
+
+# Test output
+coverage/
+.nyc_output/
+
+# Build
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/

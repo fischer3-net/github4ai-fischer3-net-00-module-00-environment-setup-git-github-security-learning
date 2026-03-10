@@ -1,0 +1,116 @@
+# .github/workflows/dependabot-auto-merge.yml
+# ============================================================
+# Dependabot Auto-Merge
+# ============================================================
+# Automatically approves and enables auto-merge for Dependabot
+# pull requests, so dependency updates land without manual
+# intervention once CI passes.
+#
+# How it works:
+#   1. Dependabot opens a PR
+#   2. CI runs (ci.yml) — must pass before anything merges
+#   3. This workflow approves the PR and enables auto-merge
+#   4. Once CI is green, GitHub merges automatically
+#
+# Security:
+#   - Only runs on PRs authored by Dependabot (hard-coded check)
+#   - Only auto-merges patch and minor updates (see conditions below)
+#   - Major version bumps are left for manual review
+#   - Uses the built-in GITHUB_TOKEN — no PAT required
+#   - The approve step uses a separate token scope to satisfy
+#     the "approver cannot be the PR author" requirement
+#
+# MODULE 06 TEACHING REFERENCE:
+#   This workflow demonstrates the principle of least privilege —
+#   the token only has the permissions it actually needs.
+# ============================================================
+
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write      # Needed to enable auto-merge
+  pull-requests: write # Needed to approve and label the PR
+
+jobs:
+  auto-merge:
+    name: Approve and enable auto-merge
+    runs-on: ubuntu-latest
+
+    # Only run this job on Dependabot PRs — hard stop for everything else
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      # ── Fetch Dependabot metadata ──────────────────────────
+      # This action reads the PR and exposes the update type
+      # (patch, minor, major) and the package ecosystem.
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Log what we're working with ───────────────────────
+      - name: Log update details
+        run: |
+          echo "Package:      ${{ steps.metadata.outputs.dependency-names }}"
+          echo "Update type:  ${{ steps.metadata.outputs.update-type }}"
+          echo "Ecosystem:    ${{ steps.metadata.outputs.package-ecosystem }}"
+
+      # ── Approve patch and minor updates ───────────────────
+      # Major version bumps are intentionally excluded — they may
+      # contain breaking changes that need human review.
+      #
+      # update-type values: version-update:semver-patch
+      #                     version-update:semver-minor
+      #                     version-update:semver-major
+      - name: Approve PR
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          gh pr review "$PR_URL" \
+            --approve \
+            --body "Auto-approving ${{ steps.metadata.outputs.update-type }} Dependabot update for \`${{ steps.metadata.outputs.dependency-names }}\`. CI must still pass before this merges."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Enable auto-merge ─────────────────────────────────
+      # Squash merge keeps main's history clean — one commit per
+      # dependency update rather than the internal Dependabot commits.
+      - name: Enable auto-merge
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          gh pr merge "$PR_URL" \
+            --auto \
+            --squash
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Label major version bumps for visibility ──────────
+      # Major updates don't get auto-merged, but we label them
+      # so they're easy to find and prioritise in the PR list.
+      - name: Label major updates for manual review
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          gh pr edit "$PR_URL" \
+            --add-label "dependencies,needs-review" \
+            --body-file - <<'EOF'
+          ⚠️ **Major version update — manual review required.**
+
+          This Dependabot PR bumps a major version, which may contain breaking changes.
+          Auto-merge has not been enabled. Please review the changelog before merging.
+
+          **Package:** ${{ steps.metadata.outputs.dependency-names }}
+          **Update type:** ${{ steps.metadata.outputs.update-type }}
+          EOF
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

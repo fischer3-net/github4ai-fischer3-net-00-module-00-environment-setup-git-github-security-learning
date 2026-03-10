@@ -1,0 +1,67 @@
+# .yamllint.yml
+# ============================================================
+# YAML Linting Configuration
+# ============================================================
+# Used by the CI workflow (ci.yml → lint-yaml job) to validate
+# all YAML files in .github/ — workflow files, issue templates,
+# and dependabot.yml.
+#
+# Full rule reference:
+# https://yamllint.readthedocs.io/en/stable/rules.html
+# ============================================================
+
+extends: default   # Start from yamllint's sensible defaults
+
+rules:
+
+  # ── Line Length ─────────────────────────────────────────
+  # GitHub Actions workflow files often have long lines due to
+  # action references with pinned SHAs and multi-line `run` steps.
+  # Set a generous limit; flag egregiously long lines.
+  line-length:
+    max: 160
+    level: warning   # Warn, don't error — keeps CI green on minor overages
+
+  # ── Truthy Values ───────────────────────────────────────
+  # Require explicit true/false, not yes/no or on/off.
+  # Exception: GitHub Actions uses `on:` as a top-level key
+  # (the workflow trigger), which yamllint would flag without
+  # this override.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false   # Don't flag `on:` at the top of workflow files
+
+  # ── Comments ────────────────────────────────────────────
+  # Require a space after the # in comments.
+  # Our workflow files use extensive inline comments for teaching,
+  # so this enforces clean comment style throughout.
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 2   # Two spaces before inline comments
+
+  # ── Comments Indentation ────────────────────────────────
+  # Allow comments at any indentation level — workflow files
+  # use comments inside deeply-nested steps and job blocks.
+  comments-indentation: disable
+
+  # ── Document Start ──────────────────────────────────────
+  # Don't require --- at the start of every YAML file.
+  # GitHub Actions files don't use this convention.
+  document-start: disable
+
+  # ── Braces ──────────────────────────────────────────────
+  # Allow inline braces for short mappings in workflow expressions.
+  braces:
+    max-spaces-inside: 1
+
+  # ── Brackets ────────────────────────────────────────────
+  # Allow inline brackets.
+  brackets:
+    max-spaces-inside: 1
+
+  # ── Indentation ─────────────────────────────────────────
+  # Enforce 2-space indentation throughout.
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false   # Multi-line `run` blocks vary

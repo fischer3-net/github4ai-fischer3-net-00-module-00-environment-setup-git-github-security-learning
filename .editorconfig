@@ -1,0 +1,63 @@
+# .editorconfig
+# ============================================================
+# EditorConfig
+# ============================================================
+# Ensures consistent formatting across all editors and IDEs.
+# Supported by VS Code, JetBrains, Vim, Emacs, and most others
+# either natively or via a plugin.
+#
+# https://editorconfig.org
+# ============================================================
+
+root = true
+
+# ── Defaults (all files) ──────────────────────────────────
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# ── Python ────────────────────────────────────────────────
+# PEP 8 uses 4-space indentation
+[*.py]
+indent_size = 4
+max_line_length = 88   # Ruff/Black default
+
+# ── Markdown ──────────────────────────────────────────────
+# Don't trim trailing whitespace in Markdown — two trailing
+# spaces create a hard line break (<br>) and are intentional.
+[*.{md,mdx}]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# ── YAML ──────────────────────────────────────────────────
+[*.{yml,yaml}]
+indent_size = 2
+
+# ── JSON ──────────────────────────────────────────────────
+[*.json]
+indent_size = 2
+
+# ── JavaScript / TypeScript ───────────────────────────────
+[*.{js,jsx,ts,tsx,mjs,cjs}]
+indent_size = 2
+
+# ── Astro ─────────────────────────────────────────────────
+[*.astro]
+indent_size = 2
+
+# ── Dockerfiles ───────────────────────────────────────────
+[Dockerfile*]
+indent_size = 4
+
+# ── Shell scripts ─────────────────────────────────────────
+[*.sh]
+indent_size = 2
+
+# ── Makefiles ─────────────────────────────────────────────
+# Makefiles require hard tabs
+[Makefile]
+indent_style = tab

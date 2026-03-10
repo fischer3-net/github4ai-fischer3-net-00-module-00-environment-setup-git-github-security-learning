@@ -1,0 +1,100 @@
+---
+// src/components/ModuleHeader.astro
+// ============================================================
+// ModuleHeader Component
+// ============================================================
+// Renders the structured header block that appears at the top
+// of every module page, directly below the title.
+//
+// Shows:
+//   - Module meta row: duration, difficulty, prerequisites
+//   - Learning objectives list
+//
+// Data is pulled from the MDX page's frontmatter, so there's
+// no risk of the header falling out of sync with the content.
+//
+// Usage in a module .mdx file:
+//
+//   import ModuleHeader from '@components/ModuleHeader.astro';
+//
+//   <ModuleHeader
+//     duration="60–90 minutes"
+//     difficulty="beginner"
+//     prerequisites={[]}
+//     objectives={[
+//       "Fork the A2A starter repository using the GitHub UI",
+//       "Launch a GitHub Codespace from a forked repository",
+//       "Explain what a .gitignore file does and why it matters",
+//     ]}
+//   />
+// ============================================================
+
+interface Props {
+  duration?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  prerequisites?: string[];         // Array of module names (not slugs)
+  objectives: string[];             // Required — enforced by content schema
+  projectStep?: string;             // What gets built in the A2A project
+}
+
+const {
+  duration,
+  difficulty,
+  prerequisites = [],
+  objectives,
+  projectStep,
+} = Astro.props;
+
+const difficultyEmoji = {
+  beginner: '🟢',
+  intermediate: '🟡',
+  advanced: '🔴',
+};
+---
+
+<!-- Module Meta Row -->
+<div class="module-meta">
+  {duration && (
+    <div class="module-meta__item">
+      <span aria-hidden="true">⏱</span>
+      <span class="module-meta__label">Duration:</span>
+      <span>{duration}</span>
+    </div>
+  )}
+
+  {difficulty && (
+    <div class="module-meta__item">
+      <span aria-hidden="true">{difficultyEmoji[difficulty]}</span>
+      <span class="module-meta__label">Level:</span>
+      <span style="text-transform: capitalize">{difficulty}</span>
+    </div>
+  )}
+
+  {prerequisites.length > 0 && (
+    <div class="module-meta__item">
+      <span aria-hidden="true">📋</span>
+      <span class="module-meta__label">After:</span>
+      <span>{prerequisites.join(', ')}</span>
+    </div>
+  )}
+
+  {projectStep && (
+    <div class="module-meta__item">
+      <span aria-hidden="true">🤖</span>
+      <span class="module-meta__label">Project step:</span>
+      <span>{projectStep}</span>
+    </div>
+  )}
+</div>
+
+<!-- Learning Objectives -->
+<div class="learning-objectives" role="region" aria-label="Learning Objectives">
+  <div class="learning-objectives__title">
+    By the end of this module, you will be able to:
+  </div>
+  <ul class="learning-objectives__list">
+    {objectives.map((obj) => (
+      <li>{obj}</li>
+    ))}
+  </ul>
+</div>

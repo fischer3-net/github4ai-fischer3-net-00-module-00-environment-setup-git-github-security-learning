@@ -1,0 +1,96 @@
+---
+// src/components/A2AConnection.astro
+// ============================================================
+// A2AConnection Component
+// ============================================================
+// Every module introduces a GitHub concept AND a corresponding
+// step in the Agent-to-Agent (A2A) starter project. This
+// component makes that connection explicit and visually distinct.
+//
+// Usage:
+//
+//   import A2AConnection from '@components/A2AConnection.astro';
+//
+//   <A2AConnection step="Add the Search Agent">
+//     In this module, you'll create a `feature/specialist-agent-search`
+//     branch and build a Search Agent that the Orchestrator can route
+//     tasks to. The merge conflict exercise uses two diverging versions
+//     of the agent registry file.
+//   </A2AConnection>
+// ============================================================
+
+interface Props {
+  step: string;           // Short label for the project step
+  agent?: string;         // Which agent is involved, if any
+  files?: string[];       // Key files modified in this step
+}
+
+const { step, agent, files = [] } = Astro.props;
+---
+
+<div class="a2a-connection" role="complementary" aria-label="A2A Project Connection">
+  <div class="a2a-connection__header">
+    <span aria-hidden="true">🤖</span>
+    <span>A2A Project</span>
+    <span class="a2a-connection__step">· {step}</span>
+  </div>
+
+  <div class="a2a-connection__body">
+    <slot />
+  </div>
+
+  {(agent || files.length > 0) && (
+    <div class="a2a-connection__meta">
+      {agent && (
+        <div class="a2a-connection__meta-item">
+          <span class="a2a-connection__meta-label">Agent:</span>
+          <code>{agent}</code>
+        </div>
+      )}
+      {files.length > 0 && (
+        <div class="a2a-connection__meta-item">
+          <span class="a2a-connection__meta-label">Key files:</span>
+          {files.map((f, i) => (
+            <>
+              <code>{f}</code>
+              {i < files.length - 1 && ', '}
+            </>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+<style>
+  .a2a-connection__step {
+    opacity: 0.7;
+  }
+
+  .a2a-connection__body {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 0.5rem;
+  }
+
+  .a2a-connection__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--sl-color-accent-low);
+    font-size: 0.8rem;
+  }
+
+  .a2a-connection__meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .a2a-connection__meta-label {
+    font-weight: 600;
+    color: var(--sl-color-text-accent);
+  }
+</style>

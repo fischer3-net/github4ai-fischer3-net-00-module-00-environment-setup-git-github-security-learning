@@ -1,0 +1,436 @@
+---
+title: Content Style Guide
+description: Voice, tone, formatting rules, module structure, and component usage for writing and editing course content in GitHub for AI Builders.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+This guide covers everything you need to write content that feels consistent with
+the rest of the course — voice, formatting, module structure, Starlight components,
+and the markdownlint rules enforced in CI. Read it before opening a PR that adds
+or edits lesson content.
+
+---
+
+## Voice and Tone
+
+**Direct and practical.** Learners are here to do things, not read essays.
+Favour short sentences and active verbs. If a paragraph can be cut without
+losing meaning, cut it.
+
+**Friendly but not condescending.** Assume competence. Explain unfamiliar terms
+when they first appear, but don't over-explain concepts the learner already knows
+from earlier modules.
+
+**Honest about complexity.** Don't oversimplify. If something has tradeoffs, name
+them. Learners will encounter the real behaviour in the wild — prepare them for it.
+
+**Connected to the project.** Every concept should be grounded in the A2A system.
+Avoid generic examples when a project-relevant one exists. "GitHub creates a merge
+commit" is weaker than "GitHub creates a merge commit when you merge the Search Agent
+branch using the default strategy."
+
+**Present tense throughout.** Write "GitHub creates a merge commit" not "GitHub
+will create a merge commit." Present tense is more direct and avoids the implication
+that the reader hasn't done something yet.
+
+---
+
+## GitHub Feature Names
+
+Spell GitHub product and feature names exactly as GitHub does — capitalization
+matters. CI will not catch this, but reviewers will.
+
+| ✅ Correct | ❌ Incorrect |
+|-----------|-------------|
+| GitHub Actions | github actions / Github Actions |
+| GitHub Codespaces | Codespaces (alone, first use) / github codespaces |
+| Dependabot | dependabot / DependaBot |
+| GitHub Pages | Github Pages / github pages |
+| Secret Scanning | secret scanning / SecretScanning |
+| CodeQL | codeql / Code QL |
+| Pull Request | pull request (acceptable in prose) / PR (first use — spell out first) |
+
+---
+
+## Module Page Structure
+
+Every module page follows this structure, in this order. Don't rearrange sections
+or omit any of them.
+
+```
+Frontmatter
+ModuleHeader component
+---
+## Background
+A2AConnection component
+---
+## Concepts
+  (one or more concept sections with ### subheadings)
+---
+## Exercise
+  (one or more Parts as ### subheadings, using <Steps>)
+---
+SecurityNote component
+---
+## Summary
+## What's Next
+```
+
+### Frontmatter
+
+All required fields — the Zod schema in `content/config.ts` will fail the build
+if any are missing or incorrectly typed:
+
+```yaml
+---
+title: "Module 02 · Branching & Merging"
+description: One sentence. Appears in search results and link previews — make it specific.
+moduleNumber: 2
+duration: "75–90 minutes"
+difficulty: beginner          # beginner | intermediate | advanced
+hasSecurityNote: true
+securityConcept: "Branch Protection Rules"
+projectStep: "Add the Search Agent via a feature branch"
+prerequisites:
+  - "Module 00 · Environment Setup"
+  - "Module 01 · Repositories & Commits"
+isCore: false
+learningObjectives:
+  - "Explain what a Git branch is and why branches exist"
+  - "Create, switch between, and delete branches using git switch"
+  - "Resolve a merge conflict by editing conflict markers manually"
+---
+```
+
+**Learning objectives** must start with an action verb and describe something
+observable. A learner who completed the module should be able to demonstrate each
+objective. Aim for 3–6 objectives — the schema enforces a minimum of 3.
+
+| ✅ Good objective | ❌ Poor objective |
+|------------------|-----------------|
+| "Resolve a merge conflict by editing conflict markers manually" | "Understand merge conflicts" |
+| "Configure Dependabot for Python and Node.js ecosystems" | "Learn about Dependabot" |
+| "Open a Pull Request using the GitHub CLI" | "Know how to use the CLI" |
+
+### Background Section
+
+1–3 paragraphs explaining the concept and why it matters, grounded immediately
+in the A2A project context. This is where the `<A2AConnection>` component goes,
+directly after the prose.
+
+Don't start the background by defining the concept — start with the problem
+the concept solves. The learner is more engaged when they understand why before
+they learn what.
+
+### Concepts Section
+
+Explanation with examples. Use `###` subheadings for each distinct concept within
+the section. Prefer code blocks and diagrams over prose for anything structural.
+Reference the actual A2A project files where possible — the real `ci.yml`, the
+real `orchestrator/main.py` — rather than invented examples.
+
+### Exercise Section
+
+Hands-on steps using the `<Steps>` component. Break multi-part exercises into
+`### Part N — Title` subheadings. Each step should produce a visible, verifiable
+result. End each Part with a checkpoint the learner can confirm before moving on.
+
+### Summary Section
+
+3–5 bullet points. Each one should be a concrete thing the learner did or can
+now do — not a restatement of concepts. "You enabled Dependabot alerts" is better
+than "Dependabot alerts watch for CVEs."
+
+### What's Next Section
+
+A single bold link to the next module, with one sentence describing what it covers.
+
+---
+
+## Formatting Rules
+
+These rules are enforced by `.markdownlint.yml` in CI. PRs that fail the
+markdown lint job will not be reviewed until the failures are fixed.
+
+### Headings
+
+Use ATX-style headings only — `#` prefix, never underline-style:
+
+```markdown
+## Correct heading
+
+Incorrect heading
+-----------------
+```
+
+Don't skip heading levels. If you're inside a `##` section, use `###` for
+subsections — not `####` jumping over a level.
+
+No trailing punctuation in headings (periods, exclamation marks, question marks).
+Colons are permitted for headings like "Security Note: Never Commit Secrets".
+
+### Code Blocks
+
+Always use fenced code blocks with a language identifier. Never use indented
+code blocks — CI will reject them.
+
+```markdown
+```bash
+git checkout -b feat/search-agent
+```
+
+```python
+def mock_search(query: str) -> str:
+    ...
+```
+
+```yaml
+on:
+  push:
+    branches: [main]
+```
+```
+
+Use the correct language identifier for every block. Common ones used in this
+course: `bash`, `python`, `javascript`, `yaml`, `json`, `markdown`, `mdx`, `text`.
+
+Use `bash` for terminal commands even if the shell is `zsh` — `bash` is the
+correct identifier for shell sessions. Use `text` for output that isn't code.
+
+Never use a screenshot for command-line output — always use a `text` or `bash`
+code block so learners can copy it.
+
+### Lists
+
+Use `2-space` indentation for nested list items. Ordered lists use sequential
+numbers (1. 2. 3.) — not all-ones (1. 1. 1.).
+
+Don't use lists where prose works better. A sequence of three related ideas
+reads better as a sentence than as three bullets.
+
+### Links
+
+Use relative links for internal references — never absolute URLs pointing to
+the live site:
+
+```markdown
+✅ [Module 02](/modules/02-branching-and-merging/)
+✅ [Branch Naming Reference](/reference/branch-naming/)
+❌ https://your-org.github.io/git-github-security-learning/modules/02-branching-and-merging/
+```
+
+For links to files in the GitHub repository, use the full GitHub URL so they
+remain stable if the docs site moves.
+
+### Blank Lines
+
+Maximum one consecutive blank line anywhere in the file. Two or more consecutive
+blank lines will fail the lint check.
+
+---
+
+## Starlight Components
+
+### Built-in Components
+
+Import from `@astrojs/starlight/components`. The most commonly used:
+
+```mdx
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+```
+
+**`<Steps>`** — numbered step sequences. Use for all exercise steps. Each direct
+child becomes a numbered step:
+
+````mdx
+
+<Steps>
+1. Clone your fork:
+
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/repo.git
+   ```
+
+2. Add the upstream remote:
+
+   ```bash
+   git remote add upstream https://github.com/fischer3-net/repo.git
+   ```
+</Steps>
+
+````
+
+**`<Tabs>` / `<TabItem>`** — language-variant content. Use when showing the same
+concept in both Python and Node.js:
+
+````mdx
+<Tabs>
+  <TabItem label="Python">
+    ```bash
+    pip install -r requirements.txt
+    python agents/echo/main.py
+    ```
+  </TabItem>
+  <TabItem label="Node.js">
+    ```bash
+    npm install
+    node agents/echo/index.js
+    ```
+  </TabItem>
+</Tabs>
+````
+
+**`<Aside>`** — callout boxes. Use sparingly — one or two per module at most.
+Too many asides train learners to skip them.
+
+```mdx
+<Aside type="tip" title="Optional title">
+  A helpful tip that doesn't fit naturally in the main flow.
+</Aside>
+
+<Aside type="note" title="Optional title">
+  Important clarification or caveat.
+</Aside>
+
+<Aside type="caution" title="Optional title">
+  Something that will cause problems if ignored.
+</Aside>
+```
+
+<Aside type="caution" title="Don't use type='danger'">
+  Reserve `<Aside type="caution">` for genuine gotchas. If everything is a
+  caution, nothing is. Security warnings belong in the `<SecurityNote>`
+  component, not in Asides.
+</Aside>
+
+### Custom Components
+
+Import from `@components/`. All three are required in module pages.
+
+**`<ModuleHeader>`** — always the first thing after the frontmatter, before any
+prose. Reads values from `frontmatter` — don't hardcode them:
+
+```mdx
+import ModuleHeader from '@components/ModuleHeader.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+```
+
+**`<A2AConnection>`** — place in the Background section, after the introductory
+prose and before the Concepts section:
+
+```mdx
+import A2AConnection from '@components/A2AConnection.astro';
+
+<A2AConnection
+  step="Add the Search Agent via a feature branch"
+  agent="search"
+  files={['agents/search/main.py', 'orchestrator/main.py']}
+>
+  In this module you'll create a feature branch, add the Search Agent,
+  and merge it into main — experiencing a real merge conflict along the way.
+</A2AConnection>
+```
+
+**`<SecurityNote>`** — place after the exercises, before the Summary. See
+[Writing Security Notes](/contributing/security-notes/) for full guidance on
+content. Usage:
+
+```mdx
+import SecurityNote from '@components/SecurityNote.astro';
+
+<SecurityNote concept="Branch Protection Rules" module={2} deepDive="branch-protection">
+  Your security note content here — 100–300 words, one concept.
+</SecurityNote>
+```
+
+---
+
+## Exercises
+
+Exercises in `exercises/` (for module README files) or inside `<Steps>` blocks
+(for MDX pages) must include all of the following:
+
+- **Goal statement** at the top — one sentence describing what the learner will accomplish
+- **Step-by-step instructions** the learner can follow independently without guessing
+- **Expected output** — what should the terminal print, what should the page show, what should `git log` display
+- **A hint** for the most common stumbling point
+
+For MDX module pages, multi-part exercises use `### Part N — Title` subheadings
+with a `<Steps>` block inside each Part.
+
+---
+
+## Screenshots
+
+Screenshots are welcome when they show UI state that's hard to describe in words.
+They must:
+
+- Include descriptive alt text: `![The Dependabot alerts tab showing three open alerts](...)`
+- Be stored in the module's `images/` folder, not embedded as external URLs
+- Be current — UI screenshots go stale quickly; prefer CLI output in code blocks where possible
+
+Never use a screenshot for command-line output. Use a fenced `text` or `bash` block.
+
+---
+
+## What CI Checks
+
+The `lint-markdown` job in `ci.yml` runs markdownlint against all `.md` and `.mdx`
+files. The key rules enforced:
+
+| Rule | What it catches |
+|------|----------------|
+| `MD003` | Underline-style headings (`===`, `---`) |
+| `MD007` | List indentation not 2 spaces |
+| `MD010` | Hard tabs instead of spaces |
+| `MD012` | More than one consecutive blank line |
+| `MD024` | Duplicate sibling headings |
+| `MD029` | Ordered list not using sequential numbers |
+| `MD046` | Indented code blocks instead of fenced |
+
+Line length (`MD013`) and inline HTML (`MD033`) are disabled — long URLs and
+MDX component syntax would produce constant false positives.
+
+---
+
+## Quick Reference
+
+| Thing | Rule |
+|-------|------|
+| Headings | ATX style (`##`), no trailing punctuation, no skipped levels |
+| Code blocks | Fenced, always with a language identifier |
+| Links | Relative for internal, absolute GitHub URL for repo files |
+| Tense | Present tense throughout |
+| GitHub names | Exact capitalization (GitHub Actions, Dependabot, CodeQL) |
+| Lists | 2-space indent, sequential numbers for ordered |
+| Blank lines | Maximum one consecutive |
+| Screenshots | Alt text required, stored in `images/`, never for CLI output |
+| Asides | Sparingly — one or two per module maximum |
+
+---
+
+## Related
+
+<LinkCard
+  title="Writing Security Notes"
+  description="Specific guidance for the SecurityNote component and what makes a good security note."
+  href="/contributing/security-notes/"
+/>
+<LinkCard
+  title="How to Contribute"
+  description="The full contributor workflow including PR process and checklists."
+  href="/contributing/how-to-contribute/"
+/>
+<LinkCard
+  title="Module 00 · Environment Setup"
+  description="The fully authored exemplar module — the best reference for correct structure and component usage."
+  href="/modules/00-setup/"
+/>

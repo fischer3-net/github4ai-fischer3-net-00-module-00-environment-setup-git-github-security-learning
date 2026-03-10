@@ -1,0 +1,44 @@
+{
+  "name": "a2a-starter-project",
+  "version": "1.0.0",
+  "description": "Agent-to-Agent starter project — Node.js variant. Teaching vehicle for GitHub for AI Builders.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node orchestrator/index.js",
+    "start:echo": "node agents/echo/index.js",
+    "start:search": "node agents/search/index.js",
+    "start:all": "concurrently \"npm run start:echo\" \"npm run start:search\" \"npm run start\"",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest tests/unit --coverage",
+    "test:integration": "jest tests/integration --testTimeout=15000",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.1.0",
+    "eslint": "^10.0.2",
+    "jest": "^30.2.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "orchestrator/**/*.js",
+      "agents/**/*.js",
+      "!**/node_modules/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 70
+      }
+    }
+  }
+}
