@@ -1,0 +1,197 @@
+---
+title: "Supply Chain Security"
+description: Pin GitHub Action SHAs, audit your dependency graph, and understand why the package you install today might not be the one you run tomorrow.
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Supply Chain Security
+
+**Introduced in:** [Module 06 · Security on GitHub](/modules/06-security/)
+
+A supply chain attack doesn't compromise your code directly — it compromises something your code depends on. Your application is only as trustworthy as every package it imports and every tool it uses to build and deploy.
+
+This page covers the three main supply chain risks in a GitHub-hosted project: compromised dependencies, compromised GitHub Actions, and typosquatting.
+
+---
+
+## What Is a Supply Chain Attack?
+
+In a software supply chain attack, an attacker targets a component upstream of you — a library, a build tool, a GitHub Action — rather than your code directly. When you update your dependencies or your workflow runs, the malicious code runs in your environment with whatever access you've granted.
+
+**Notable real-world examples:**
+
+- **SolarWinds (2020):** Attackers compromised the build pipeline of SolarWinds' Orion software, injecting malicious code into signed updates shipped to 18,000 customers — including US government agencies.
+- **event-stream (2018):** A malicious actor gained publishing rights to a popular npm package and added code that targeted cryptocurrency wallets.
+- **ua-parser-js (2021):** The npm account of a popular package was compromised and malicious versions published that installed cryptominers and credential stealers.
+- **tj-actions/changed-files (2025):** A GitHub Action used by thousands of repositories was compromised to exfiltrate CI secrets from runner environments.
+
+The last example is particularly relevant: GitHub Actions are code that runs in your CI pipeline with access to your repository and your secrets.
+
+---
+
+## Risk 1: Compromised GitHub Actions
+
+When you use `uses: some-org/some-action@v2`, you're running code from that repository. If the action's maintainer account is compromised, or if the maintainer themselves acts maliciously, moving a tag is all it takes to push new code to thousands of workflows.
+
+### The Fix: Pin to Commit SHAs
+
+A git tag can be moved. A commit SHA cannot. Once a commit exists, its SHA is permanently bound to exactly that content — the SHA is a cryptographic hash of the commit contents.
+
+```yaml
+# Vulnerable — tag v4 can be moved to point to any commit
+- uses: actions/checkout@v4
+
+# Safe — this SHA will always refer to exactly this commit
+- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+```
+
+**How to get the SHA for an action:**
+
+<Steps>
+1. Go to the action's repository on GitHub (e.g., `github.com/actions/checkout`)
+2. Click the **Tags** tab and find the version you want
+3. Click the tag name to see the tagged commit
+4. Copy the full 40-character SHA from the commit page
+5. Paste it into your workflow with a comment showing the human-readable version
+</Steps>
+
+Or use the `pin-github-action` tool to do this automatically across your workflow files:
+
+```bash
+pip install pin-github-actions
+pin-github-actions .github/workflows/
+```
+
+<Aside type="tip" title="Dependabot keeps pinned SHAs current">
+  With `package-ecosystem: github-actions` in your `dependabot.yml`,
+  Dependabot will open PRs to update pinned SHAs when new versions of
+  actions are released. You get the security of immutable pinning without
+  the maintenance burden of manually tracking updates.
+</Aside>
+
+### Prefer Actions from Trusted Sources
+
+Not all actions carry the same risk. Apply extra scrutiny to:
+
+- Actions from individual accounts (vs. organisations)
+- Actions with few stars or low usage
+- Actions that request broad permissions
+- Actions that haven't been updated recently
+
+When possible, prefer:
+
+- **`actions/*`** — GitHub's own actions, maintained by GitHub
+- **Verified creators** — shown with a blue checkmark badge on the Marketplace
+- **Well-known organisations** — Docker, AWS, Google Cloud, etc.
+
+---
+
+## Risk 2: Compromised or Malicious Dependencies
+
+Your Python and Node.js packages are also supply chain risks. The package you installed six months ago may have released a new version under new (possibly malicious) ownership.
+
+### Lock Files
+
+Lock files (`package-lock.json`, `Pipfile.lock`, `poetry.lock`, `requirements.txt` with pinned versions) are your first line of defence. They record the exact version — and in the case of npm, the exact content hash — of every dependency at install time.
+
+**Commit your lock files.** Do not add them to `.gitignore`. They're the record of exactly what your application depends on.
+
+```bash
+# npm — generates package-lock.json
+npm install
+
+# pip — pin exact versions
+pip freeze > requirements.txt
+
+# poetry — generates poetry.lock
+poetry install
+```
+
+**In CI, always use the lock file install command:**
+
+```yaml
+# npm — installs exact versions from package-lock.json
+- run: npm ci
+
+# pip — installs exact versions from requirements.txt
+- run: pip install -r requirements.txt
+```
+
+`npm ci` (not `npm install`) is particularly important — it fails if `package-lock.json` is out of sync with `package.json`, preventing subtle version drift.
+
+### Audit Your Dependencies
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    # Check for known vulnerabilities
+    npm audit
+
+    # Auto-fix safe updates
+    npm audit fix
+
+    # Show details about a specific vulnerability
+    npm audit --json | jq '.vulnerabilities'
+    ```
+  </TabItem>
+  <TabItem label="pip">
+    ```bash
+    # Install pip-audit
+    pip install pip-audit
+
+    # Audit installed packages
+    pip-audit
+
+    # Audit from requirements file
+    pip-audit -r requirements.txt
+    ```
+  </TabItem>
+</Tabs>
+
+These commands check installed packages against known vulnerability databases. Run them regularly and include them in your CI pipeline.
+
+### The Dependency Graph and SBOM
+
+GitHub generates a **dependency graph** for your repository — a visual map of all direct and transitive dependencies. Find it at:
+
+**Insights → Dependency graph**
+
+From the dependency graph, you can also export a **Software Bill of Materials (SBOM)** — a machine-readable inventory of every dependency, their versions, and their licences. See [Release Signing & SBOM](/security/sbom-attestation/) for how the A2A project generates and signs SBOMs at release time.
+
+---
+
+## Risk 3: Typosquatting
+
+Typosquatting is when a malicious package is published with a name that's a common misspelling of a popular package. The attacker hopes someone installing the legitimate package makes a typo.
+
+| Legitimate | Typosquat examples |
+|-----------|-------------------|
+| `requests` | `request`, `requestss`, `requets` |
+| `numpy` | `numppy`, `nunpy`, `numipy` |
+| `fastapi` | `fast-api`, `fatsapi` |
+
+**Defences:**
+
+- **Use lock files** — once you've installed the correct package and locked it, typos in future installs won't affect production
+- **Verify package names** before installing anything new — check the PyPI or npm registry page, maintainer identity, and download counts
+- **Be suspicious of unfamiliar packages** that claim to be wrappers or alternatives to well-known packages
+
+---
+
+## The A2A Project's Supply Chain Posture
+
+The A2A project demonstrates these practices throughout its configuration:
+
+| Practice | Where to find it |
+|---------|----------------|
+| Pinned action SHAs | All files in `.github/workflows/` |
+| Dependabot for Actions | `.github/dependabot.yml` — `github-actions` ecosystem |
+| Dependabot for Python | `.github/dependabot.yml` — `pip` ecosystem |
+| Dependabot for Node.js | `.github/dependabot.yml` — `npm` ecosystem |
+| Lock files committed | `package-lock.json` in `docs/` and `starter-project/nodejs/` |
+| `npm ci` in CI | All Node.js steps in `ci.yml` and `pages.yml` |
+| SBOM generation | `release.yml` — `generate-sbom` job |
+| Artifact attestation | `release.yml` — `attest` job with Sigstore |
+
+Reading through these files gives you a concrete example of supply chain security applied to a real project. Module 08 walks through `release.yml` in detail, including how the SBOM is generated and attached to releases.

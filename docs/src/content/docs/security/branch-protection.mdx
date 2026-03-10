@@ -1,0 +1,172 @@
+---
+title: "Branch Protection Rules"
+description: How GitHub rulesets enforce code review, prevent force pushes, and ensure CI passes before anything reaches main.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Branch Protection Rules
+
+**Introduced in:** [Module 02 · Branching & Merging](/modules/02-branching-and-merging/)
+
+Branch protection rules are access controls on your repository's most important branches. They answer the question: *who is allowed to do what to `main`, and under what conditions?*
+
+---
+
+## Why `main` Needs Protection
+
+In an unprotected repository, anyone with write access can:
+
+- Push commits directly to `main`, bypassing code review entirely
+- Force-push to rewrite history, potentially erasing other people's work
+- Merge a pull request with failing CI
+- Merge without any review at all
+
+For a solo project this may be acceptable. For a team — or any project where others depend on `main` being stable — it's a risk. Branch protection rules make the stable state the default and require intentional bypass for exceptions.
+
+For an A2A project specifically, unprotected main branches create a concrete attack path: a compromised contributor account could push directly to `main`, injecting malicious code into agent logic that gets deployed without review.
+
+---
+
+## Rulesets vs. Classic Branch Protection
+
+GitHub has two systems for branch protection. **Classic branch protection** (the older system) applies rules per-branch. **Rulesets** (the modern system) are more flexible — they can apply to multiple branches via patterns, stack with other rulesets, and support a bypass list.
+
+This course uses **rulesets**. You access them at:
+
+**Repository → Settings → Rules → Rulesets**
+
+<Aside type="note" title="Both systems coexist">
+  If your repository has both classic branch protection and rulesets on the
+  same branch, the more restrictive rule wins. For new repositories, use
+  rulesets exclusively — classic branch protection is not being deprecated,
+  but rulesets are more capable.
+</Aside>
+
+---
+
+## The Rules That Matter Most
+
+### Require a Pull Request Before Merging
+
+This is the foundational rule. It prevents anyone from pushing directly to `main` — all changes must go through a PR. Combined with required reviewers, it ensures every change gets at least one pair of eyes before it's merged.
+
+**Key sub-settings:**
+
+- **Required approvals: 1** — at minimum, one person other than the author must approve
+- **Dismiss stale reviews when new commits are pushed** — an approval on an older version of the PR doesn't count for a newer version. This prevents the pattern of getting approval, then sneaking in a change.
+- **Require review from Code Owners** — if the changed files have a designated owner in `CODEOWNERS`, that owner must approve
+
+### Require Status Checks to Pass
+
+Blocks merging until specified CI checks show green. In the A2A project this means the **CI Gate** job must pass — which itself requires all linting, testing, and schema validation jobs to pass first.
+
+The critical sub-setting here is **Require branches to be up to date before merging**. Without this, a PR can pass CI on its own but introduce a regression when combined with changes that merged since the PR was opened.
+
+### Block Force Pushes
+
+`git push --force` rewrites history on the remote. On a shared branch, this can destroy commits from other contributors. On `main`, it can erase the audit trail of what was deployed and when.
+
+Force pushes should be blocked on `main` with no exceptions. If you genuinely need to rewrite history (for example, to remove an accidentally committed secret), this can be done by temporarily removing yourself from the bypass restrictions — but it should be a deliberate, documented action.
+
+### Require Signed Commits (Optional but Recommended)
+
+Commit signatures verify that commits were actually made by the stated author. Without signatures, anyone with push access can create a commit attributed to any email address. With signatures, each commit is cryptographically tied to a GPG or SSH key the author controls.
+
+This is particularly relevant for AI projects where commit provenance may matter for compliance or audit purposes.
+
+---
+
+## CODEOWNERS
+
+`CODEOWNERS` is a file that maps file patterns to GitHub users or teams. When a PR touches a file that has a designated owner, that owner is automatically added as a required reviewer.
+
+Create it at `.github/CODEOWNERS`:
+
+```
+# .github/CODEOWNERS
+# Format: pattern  @owner-or-team
+
+# Anyone touching agent routing logic needs security team sign-off
+starter-project/*/orchestrator.py    @security-team
+
+# Documentation changes need a technical writer
+docs/src/content/docs/modules/      @tech-writers
+
+# Workflow changes need a senior maintainer
+.github/workflows/                  @maintainers
+
+# Default: maintainers review everything else
+*                                   @maintainers
+```
+
+<Aside type="tip" title="CODEOWNERS only works with branch protection enabled">
+  Declaring a CODEOWNERS file alone doesn't enforce anything. It only becomes
+  mandatory when **Require review from Code Owners** is checked in your
+  ruleset. Without that setting, CODEOWNERS adds reviewers automatically
+  but doesn't block merging without their approval.
+</Aside>
+
+---
+
+## Setting Up the A2A Project Ruleset
+
+<Steps>
+1. Go to **Settings → Rules → Rulesets → New ruleset → New branch ruleset**
+
+2. Name it `Protect main` and set **Enforcement status** to **Active**
+
+3. Under **Target branches**, click **Add target → Include by pattern** and enter `main`
+
+4. Enable these rules:
+   - ✅ **Restrict deletions** — prevent `main` from being deleted
+   - ✅ **Require linear history** — enforces squash or rebase merges (no merge commits)
+   - ✅ **Require a pull request before merging**
+     - Required approvals: `1`
+     - ✅ Dismiss stale pull request approvals when new commits are pushed
+     - ✅ Require review from Code Owners
+   - ✅ **Require status checks to pass**
+     - Add check: `CI Gate`
+     - ✅ Require branches to be up to date before merging
+   - ✅ **Block force pushes**
+
+5. Under **Bypass list**, add yourself with the **Repository admin** role. This gives you an emergency escape hatch — for example, if CI itself is broken and you need to push a fix directly.
+
+6. Click **Create**
+
+7. Verify the ruleset is active by attempting a direct push to `main`:
+
+   ```bash
+   echo "test" >> README.md
+   git add README.md
+   git commit -m "test: should be blocked"
+   git push origin main
+   ```
+
+   You should see:
+   ```
+   remote: error: GH013: Repository rule violations found for refs/heads/main.
+   remote: - Changes must be made through a pull request.
+   ```
+
+   Reset your local state:
+   ```bash
+   git reset HEAD~1
+   git restore README.md
+   ```
+</Steps>
+
+---
+
+## The Bypass List — Use Carefully
+
+Every ruleset supports a bypass list: specific users, teams, or apps that can skip the rules. This is necessary — without it, broken CI can lock you out of your own repository.
+
+**Bypass list best practices:**
+
+- Add only named individuals or teams, not broad roles
+- Document why each bypass entry exists
+- Review the bypass list quarterly and remove stale entries
+- Log bypass events — GitHub records when rules are bypassed in the audit log (Settings → Audit log)
+
+For the A2A project, only the repository maintainer should be on the bypass list. Automated bots (like Dependabot) are granted bypass via their app permissions, not the user bypass list.

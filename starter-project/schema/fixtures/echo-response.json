@@ -1,0 +1,6 @@
+{
+  "agent": "echo",
+  "status": "success",
+  "output": "Echo: Is this working?",
+  "request_id": "550e8400-e29b-4d8d-a456-426614174000"
+}

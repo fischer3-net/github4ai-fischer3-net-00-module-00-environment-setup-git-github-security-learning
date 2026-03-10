@@ -1,0 +1,142 @@
+name: "🧩 New Module Proposal"
+description: "Propose an entirely new module for the course. Read the instructions carefully — new modules require Discussion approval before an issue is opened."
+title: "[New Module] Proposed title"
+labels: ["new-module", "needs-discussion", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Please read before submitting
+        
+        New module proposals are significant scope additions. Before opening this issue, 
+        you should have **already started a Discussion** in the 
+        [Ideas category](../../discussions/new?category=ideas) and received a signal 
+        from maintainers that the module is a good fit.
+        
+        If you haven't done that yet, please close this issue and start a Discussion first.
+        This process saves everyone time and prevents you from writing content that won't be accepted.
+
+  - type: input
+    id: discussion-link
+    attributes:
+      label: Link to the Ideas Discussion
+      description: "Paste the URL of the Discussion where maintainers approved moving forward with this module."
+      placeholder: "https://github.com/fischer3-net/git-github-security-learning/discussions/XX"
+    validations:
+      required: true
+
+  - type: input
+    id: module-title
+    attributes:
+      label: Proposed module title
+      placeholder: "Module XX — Topic Name"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: placement
+    attributes:
+      label: Where does this module fit in the course sequence?
+      options:
+        - "Before Module 00 (new prerequisite)"
+        - "Between Module 00 and 01"
+        - "Between Module 01 and 02"
+        - "Between Module 02 and 03"
+        - "Between Module 03 and 04"
+        - "Between Module 04 and 05"
+        - "Between Module 05 and 06"
+        - "Between Module 06 and 07"
+        - "Between Module 07 and 08"
+        - "Between Module 08 and 09 (Capstone)"
+        - "After the Capstone (extension module)"
+        - "Standalone / optional module"
+    validations:
+      required: true
+
+  - type: textarea
+    id: github-topics
+    attributes:
+      label: GitHub topics covered
+      description: "List the specific GitHub features, concepts, or workflows this module teaches."
+      placeholder: |
+        - GitHub Copilot for code suggestions in PRs
+        - Copilot for commit message generation
+        - Copilot CLI for git command assistance
+    validations:
+      required: true
+
+  - type: textarea
+    id: learning-objectives
+    attributes:
+      label: Learning objectives
+      description: "3–5 measurable learning objectives, each starting with a verb (Create, Configure, Explain, Identify, Apply...)"
+      placeholder: |
+        By the end of this module, learners will be able to:
+        1. Configure GitHub Copilot in a Codespace
+        2. Use Copilot to generate and evaluate code suggestions
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: a2a-connection
+    attributes:
+      label: How does it connect to the A2A project?
+      description: "Modules must be grounded in the Agent-to-Agent starter project. Describe the specific project step this module introduces."
+      placeholder: "In this module, learners will use Copilot to help write the agent routing logic in the Orchestrator..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: security-note
+    attributes:
+      label: Security note concept
+      description: "Every module includes a security note. What security concept, specific to AI development, would this module's security note cover?"
+      placeholder: "The security note will cover how Copilot suggestions can inadvertently introduce vulnerable patterns, and how to configure Copilot to block suggestions matching known vulnerable code..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: github-tier
+    attributes:
+      label: Does this module require paid GitHub features?
+      description: "All core modules must be completable on the free GitHub tier. Optional content may use paid features if clearly labeled."
+      options:
+        - "No — fully free tier compatible"
+        - "Yes — requires GitHub Pro or Team (explain in Additional Notes)"
+        - "Yes — requires GitHub Enterprise (explain in Additional Notes)"
+        - "Mixed — core content is free, optional extension requires paid tier"
+    validations:
+      required: true
+
+  - type: textarea
+    id: estimated-scope
+    attributes:
+      label: Estimated scope
+      description: "How long do you estimate the module content would take to write? How long would it take a learner to complete?"
+      placeholder: |
+        Writing time: ~8 hours (README + 2 exercises + security note)
+        Learner completion time: ~90 minutes
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to author this module?
+      options:
+        - label: "Yes — I will write the full module content (README, exercises, solutions, security-note)"
+        - label: "Partially — I can write some sections but would need help with others"
+        - label: "No — I'm proposing it for the community to build"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-notes
+    attributes:
+      label: Additional notes
+      description: "Anything else maintainers should know — dependencies on other modules, external resources you'd reference, timeline, etc."
+    validations:
+      required: false

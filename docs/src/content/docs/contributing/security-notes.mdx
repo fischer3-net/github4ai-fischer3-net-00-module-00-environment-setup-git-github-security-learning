@@ -1,0 +1,195 @@
+---
+title: Writing Security Notes
+description: How to write a focused, actionable security note that connects a GitHub security concept to a real risk in AI development — and how to use the SecurityNote component.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Every module in this course includes a **Security Note** — a focused callout that
+connects one GitHub security feature to a specific risk in AI development. This
+page explains what makes a good security note, what makes a poor one, and how
+to use the `SecurityNote` component correctly.
+
+---
+
+## What a Security Note Is
+
+A Security Note is a 100–300 word callout that appears near the end of a module,
+after the exercises. It covers **exactly one concept**, and it is always:
+
+- **Specific to AI development risk** — not generic security advice that could
+  appear in any programming course
+- **Grounded in the A2A starter project** — the learner should be able to look
+  at the Orchestrator or one of the agents and immediately see where the risk applies
+- **Actionable** — the learner should be able to do something with the information
+  before they finish the module
+
+Security notes are not summaries of a module's security content. They are not
+lists of tips. They are not warnings that apply equally to all software projects.
+If your draft could appear unchanged in a course about Django, Rails, or Spring Boot,
+it is not specific enough.
+
+---
+
+## What a Security Note Is Not
+
+**Not a list of tips:**
+> ❌ "Here are five things to remember about secrets: 1) Never commit them. 2) Use environment variables. 3) Rotate them regularly..."
+
+A note covering five things covers none of them well. Pick one. Go deep.
+
+**Not generic security advice:**
+> ❌ "It's important to keep your dependencies up to date, as outdated packages can contain known vulnerabilities."
+
+This is true but says nothing about AI development specifically. Every module
+that has a Dependabot note must connect it to the AI agent supply chain risk —
+what happens when a *prompt construction dependency* is compromised, not just
+any dependency.
+
+**Not a re-summary of the module:**
+> ❌ "In this module you learned how to enable Secret Scanning. Secret Scanning is a GitHub feature that..."
+
+The learner just completed the exercises. They know what Secret Scanning is.
+Use the 300 words to tell them something the exercises didn't cover.
+
+---
+
+## The Structure of a Good Security Note
+
+A strong security note typically follows this pattern:
+
+1. **State the risk concretely** — what specifically can go wrong, and in what scenario
+2. **Connect it to the A2A project** — where in the Orchestrator or agents does this risk surface
+3. **Explain the mechanism** — why the GitHub feature being taught addresses this risk
+4. **Land on a specific action** — what the learner should do, check, or remember
+
+You don't need to use these as explicit sections — the best notes read as a single
+focused piece of prose, not a list.
+
+---
+
+## Examples From the Course
+
+Here are excerpts from existing security notes that demonstrate the standard to aim for.
+
+**Module 00 — Never Commit Secrets** shows the AI-specific framing:
+
+> API keys, database URLs, and tokens committed to a public GitHub repository are found within seconds by automated scanners. Once a secret is in your git history, it's compromised — even if you delete the file in a later commit, the secret remains in the history and can be retrieved with `git log`. The golden rule: if you ever accidentally commit a secret, **rotate it immediately** — don't just delete the file and push again. Assume it's already compromised.
+
+This is under 100 words, covers exactly one concept, and ends with a specific action.
+
+**Module 07 — Evaluating Third-Party AI Agent Contributions** shows the AI-specific depth this course aims for:
+
+> When an external contributor opens a PR to add a new Specialist Agent, a maintainer faces a trust problem that doesn't exist in traditional software contributions: the agent code isn't just logic — it's a component that will receive user input, potentially call external APIs, and send its output through the Orchestrator to other parts of the system. A compromised or carelessly written agent is a threat surface inside your own architecture.
+
+This immediately establishes why the AI context changes the risk calculus — something a generic "review third-party code carefully" note would miss entirely.
+
+---
+
+## The `SecurityNote` Component
+
+Security notes are rendered using the `SecurityNote` Astro component. Import and
+use it at the bottom of any module page, after the exercises and before the Summary.
+
+```mdx
+import SecurityNote from '@components/SecurityNote.astro';
+
+<SecurityNote concept="Never Commit Secrets" module={0} deepDive="never-commit-secrets">
+  Your content here — 100–300 words covering exactly one concept.
+</SecurityNote>
+```
+
+### Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `concept` | `string` | Yes | Short name of the security concept. Appears as a badge in the header. Keep it under 5 words. |
+| `module` | `number` | No | Module number (0–9). Used for cross-referencing in the Security Thread index. |
+| `deepDive` | `string` | No | Slug of the corresponding Security Thread page (e.g. `"never-commit-secrets"`). Renders a "Deep dive →" link at the bottom of the note. |
+
+### The `concept` Prop
+
+The concept name appears as a highlighted badge at the top of the callout. It should
+be a short, specific noun phrase — not a sentence, not a question, not a verb phrase.
+
+```
+✅ "Never Commit Secrets"
+✅ "Branch Protection Rules"
+✅ "Security-Aware Code Review"
+✅ "Supply Chain Security"
+❌ "How to avoid committing secrets"
+❌ "Be careful with your secrets"
+❌ "Secret scanning and push protection"  (too long)
+```
+
+### The `deepDive` Prop
+
+If a corresponding Security Thread deep-dive page exists, pass its slug as
+`deepDive`. The component will render a link to `/security/[slug]/` at the
+bottom of the note.
+
+The existing deep-dive slugs are:
+
+| Slug | Security Thread Page |
+|------|---------------------|
+| `never-commit-secrets` | Never Commit Secrets |
+| `branch-protection` | Branch Protection Rules |
+| `code-review` | Security-Aware Code Review |
+| `actions-secrets` | Secrets in GitHub Actions |
+| `dependabot-codeql` | Dependabot & CodeQL |
+| `supply-chain` | Supply Chain Security |
+| `sbom-attestation` | Release Signing & SBOM |
+
+If the Security Thread page for your concept hasn't been written yet, omit the
+`deepDive` prop entirely rather than linking to a stub.
+
+---
+
+## Frontmatter Requirements
+
+When a module page contains a security note, two frontmatter fields are required:
+
+```yaml
+hasSecurityNote: true
+securityConcept: "Never Commit Secrets"
+```
+
+`hasSecurityNote` triggers the security badge in the sidebar. `securityConcept`
+populates the Security Thread index page. Both must match the `concept` prop
+you pass to the `SecurityNote` component.
+
+<Aside type="caution" title="Don't skip the frontmatter">
+  The Zod schema in `content/config.ts` validates these fields at build time.
+  A module page with `hasSecurityNote: true` but a missing `securityConcept`
+  will fail the build. Set both together or neither.
+</Aside>
+
+---
+
+## Writing Checklist
+
+Before submitting a security note as part of a module PR, confirm:
+
+- [ ] Covers exactly one concept — not a list, not a survey
+- [ ] Specifically connected to AI development risk, not generic security advice
+- [ ] References the A2A starter project concretely (the Orchestrator, an agent, a workflow file, or the schema)
+- [ ] Actionable — ends with something the learner can do, check, or remember
+- [ ] Between 100–300 words
+- [ ] The `concept` prop is a short noun phrase (under 5 words)
+- [ ] `hasSecurityNote: true` and `securityConcept` are both set in frontmatter
+- [ ] `deepDive` prop is only set if the Security Thread page actually exists
+
+---
+
+## Related
+
+<LinkCard
+  title="How to Contribute"
+  description="The full contributor workflow, including the PR checklist for security notes."
+  href="/contributing/how-to-contribute/"
+/>
+<LinkCard
+  title="Security Thread Overview"
+  description="All security concepts from across the course, collected in one place."
+  href="/security/overview/"
+/>

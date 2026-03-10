@@ -1,0 +1,485 @@
+---
+title: Git Command Cheatsheet
+description: A quick reference for the Git commands used throughout GitHub for AI Builders, organised by task.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A quick reference for every Git command used in this course, organised by task.
+Commands are shown in the context of the A2A starter project where relevant.
+
+---
+
+## Setup & Configuration
+
+```bash
+# Set your identity (required before your first commit)
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+
+# Set default branch name to main
+git config --global init.defaultBranch main
+
+# Set VS Code as your default editor
+git config --global core.editor "code --wait"
+
+# Set VS Code as your merge conflict tool
+git config --global merge.tool vscode
+
+# View all configuration
+git config --list
+
+# View a single setting
+git config user.email
+```
+
+---
+
+## Starting a Repository
+
+```bash
+# Initialise a new repo in the current directory
+git init
+
+# Clone a remote repository
+git clone https://github.com/fischer3-net/git-github-security-learning.git
+
+# Clone and rename the local directory
+git clone https://github.com/YOUR-USERNAME/repo.git my-folder
+```
+
+---
+
+## Staging & Committing
+
+```bash
+# Check working directory and staging area status
+git status
+
+# Stage a specific file
+git add agents/search/main.py
+
+# Stage all changes in the current directory
+git add .
+
+# Stage changes interactively — choose individual hunks
+git add -p
+
+# Unstage a file (keep changes in working directory)
+git restore --staged agents/search/main.py
+
+# Commit staged changes
+git commit -m "feat(search-agent): add mock search specialist agent"
+
+# Commit with a multi-line message (opens your editor)
+git commit
+
+# Amend the most recent commit message (before pushing)
+git commit --amend -m "corrected commit message"
+
+# Amend to add a forgotten file (before pushing)
+git add forgotten-file.py
+git commit --amend --no-edit
+```
+
+<Aside type="caution" title="Amend only unpushed commits">
+  `git commit --amend` rewrites history. Only use it on commits that haven't
+  been pushed to a shared remote yet — amending a pushed commit forces other
+  contributors to reconcile diverged history.
+</Aside>
+
+---
+
+## Inspecting History
+
+```bash
+# View the commit log
+git log
+
+# Compact one-line log
+git log --oneline
+
+# Compact log with branch graph
+git log --oneline --graph
+
+# Compact log with all branches and remote refs
+git log --oneline --graph --all --decorate
+
+# Show the last N commits
+git log --oneline -5
+
+# Show full details of a specific commit
+git show abc1234
+
+# Show full details of the most recent commit
+git show HEAD
+
+# Show who last changed each line of a file
+git blame agents/orchestrator/main.py
+```
+
+---
+
+## Diffing
+
+```bash
+# Show unstaged changes (working directory vs staging area)
+git diff
+
+# Show staged changes (staging area vs last commit)
+git diff --staged
+
+# Show changes between two commits
+git diff abc1234 def5678
+
+# Show changes between two branches
+git diff main..feat/search-agent
+
+# Show changes introduced on a branch since it diverged from main
+git diff main...feat/search-agent
+
+# Show only the names of changed files
+git diff --name-only main..feat/search-agent
+```
+
+---
+
+## Branching
+
+```bash
+# List local branches (* marks the active branch)
+git branch
+
+# List local and remote branches
+git branch -a
+
+# List branches with their latest commit
+git branch -v
+
+# Create a new branch (stays on current branch)
+git branch feat/search-agent
+
+# Switch to an existing branch
+git switch main
+
+# Create and switch in one step
+git switch -c feat/search-agent
+
+# Rename a local branch
+git branch -m old-name new-name
+
+# Delete a branch that has been merged
+git branch -d feat/search-agent
+
+# Force-delete an unmerged branch
+git branch -D feat/search-agent
+
+# Compare commits on a feature branch not yet in main
+git log main..feat/search-agent
+```
+
+---
+
+## Merging
+
+```bash
+# Merge a branch into your current branch
+git switch main
+git merge feat/search-agent
+
+# Merge with an explicit merge commit (no fast-forward)
+git merge --no-ff feat/search-agent
+
+# Abort a merge in progress (e.g., during a conflict)
+git merge --abort
+
+# After resolving conflicts, mark them as resolved and finish the merge
+git add orchestrator/main.py
+git merge --continue
+```
+
+### Resolving Merge Conflicts
+
+When Git pauses with a conflict, the affected file will contain markers:
+
+```python
+<<<<<<< HEAD
+    "echo": os.getenv("ECHO_AGENT_URL", "http://localhost:8001"),
+=======
+    "echo":   os.getenv("ECHO_AGENT_URL", "http://localhost:8001"),
+    "search": os.getenv("SEARCH_AGENT_URL", "http://localhost:8002"),
+>>>>>>> feat/search-agent
+```
+
+1. Edit the file to the version you want — remove all three marker lines
+2. Stage the resolved file: `git add <file>`
+3. Complete the merge: `git merge --continue` (or `git commit`)
+
+---
+
+## Rebasing
+
+```bash
+# Replay your branch commits on top of main
+git switch feat/calculate-agent
+git rebase main
+
+# Rebase onto upstream/main (when syncing a fork)
+git fetch upstream
+git rebase upstream/main
+
+# Abort a rebase in progress
+git rebase --abort
+
+# Continue after resolving a conflict during rebase
+git add <resolved-file>
+git rebase --continue
+
+# Interactive rebase — edit, squash, or reorder the last N commits
+git rebase -i HEAD~3
+```
+
+<Aside type="caution" title="Never rebase a shared branch">
+  Rebase rewrites commit history by creating new commits with new SHAs.
+  If you rebase a branch that other people have pulled, their local copies
+  diverge and the history can no longer be reconciled cleanly. Only rebase
+  commits that exist on your machine and nowhere else. If you've already pushed,
+  use `git merge` instead.
+</Aside>
+
+---
+
+## Undoing Changes
+
+```bash
+# Discard unstaged changes to a file (irreversible)
+git restore agents/search/main.py
+
+# Discard all unstaged changes in the working directory
+git restore .
+
+# Unstage a file (keep the changes)
+git restore --staged agents/search/main.py
+
+# Undo the last commit, keep changes staged
+git reset --soft HEAD~1
+
+# Undo the last commit, keep changes unstaged
+git reset HEAD~1
+
+# Undo the last commit and discard changes entirely (irreversible)
+git reset --hard HEAD~1
+
+# Create a new commit that reverses a previous commit (safe for shared branches)
+git revert abc1234
+
+# Revert the most recent commit
+git revert HEAD
+```
+
+<Aside type="note" title="reset vs. revert">
+  `git reset` rewrites history — use it only on commits that haven't been
+  pushed. `git revert` creates a new commit that undoes a previous one,
+  leaving history intact. Use `git revert` when the commit you want to undo
+  has already been pushed to a shared branch.
+</Aside>
+
+---
+
+## Stashing
+
+```bash
+# Stash current uncommitted changes
+git stash
+
+# Stash with a descriptive message
+git stash push -m "WIP: search agent timeout handling"
+
+# List all stashes
+git stash list
+
+# Apply the most recent stash (keeps it in the stash list)
+git stash apply
+
+# Apply and remove the most recent stash
+git stash pop
+
+# Apply a specific stash
+git stash apply stash@{2}
+
+# Delete the most recent stash
+git stash drop
+
+# Delete all stashes
+git stash clear
+```
+
+---
+
+## Remotes
+
+```bash
+# List configured remotes
+git remote -v
+
+# Add a remote (e.g., upstream for a fork)
+git remote add upstream https://github.com/fischer3-net/git-github-security-learning.git
+
+# Rename a remote
+git remote rename origin old-origin
+
+# Remove a remote
+git remote remove upstream
+
+# Fetch all changes from a remote (doesn't modify local branches)
+git fetch origin
+git fetch upstream
+
+# Fetch and merge (fetch + merge in one step)
+git pull origin main
+
+# Fetch and rebase instead of merge
+git pull --rebase origin main
+```
+
+---
+
+## Pushing
+
+```bash
+# Push a branch to origin for the first time
+git push -u origin feat/search-agent
+
+# Push subsequent commits (after -u is set)
+git push
+
+# Push to a specific remote and branch
+git push origin feat/search-agent
+
+# Delete a remote branch
+git push origin --delete feat/search-agent
+
+# Force push (only use on your own branches, never main)
+git push --force-with-lease origin feat/calculate-agent
+```
+
+<Aside type="caution" title="Prefer --force-with-lease over --force">
+  `--force-with-lease` refuses to push if the remote branch has commits you
+  haven't fetched yet — protecting you from overwriting a collaborator's work.
+  Plain `--force` has no such check. Always use `--force-with-lease` when
+  force-pushing a rebased branch.
+</Aside>
+
+---
+
+## Syncing a Fork
+
+The two-remote model used in Module 07: `origin` is your fork, `upstream`
+is the original repository.
+
+```bash
+# Add upstream once (if not already configured)
+git remote add upstream https://github.com/fischer3-net/git-github-security-learning.git
+
+# Sync your fork's main with upstream
+git fetch upstream
+git switch main
+git merge upstream/main
+git push origin main
+
+# Update a feature branch with the latest upstream/main
+git switch feat/calculate-agent
+git fetch upstream
+git rebase upstream/main
+git push origin feat/calculate-agent --force-with-lease
+```
+
+---
+
+## Tagging
+
+```bash
+# Create an annotated tag (use for releases)
+git tag -a v1.0.0 -m "v1.0.0 — Initial release of the A2A system"
+
+# List all tags
+git tag
+
+# Show details of a tag
+git show v1.0.0
+
+# Push a specific tag to origin
+git push origin v1.0.0
+
+# Push all tags to origin
+git push origin --tags
+
+# Delete a local tag
+git tag -d v1.0.0
+
+# Delete a remote tag
+git push origin --delete v1.0.0
+```
+
+---
+
+## The Feature Branch Workflow
+
+The full cycle used in every module:
+
+```bash
+# 1. Start from an up-to-date main
+git switch main
+git pull origin main
+
+# 2. Create a feature branch
+git switch -c feat/search-agent
+
+# 3. Make commits
+git add .
+git commit -m "feat(search-agent): add mock search specialist agent"
+
+# 4. Push the branch to your remote
+git push -u origin feat/search-agent
+
+# 5. Open a Pull Request on GitHub (Module 03)
+#    ... review, approval, CI pass ...
+
+# 6. After merge, clean up locally
+git switch main
+git pull origin main
+git branch -d feat/search-agent
+```
+
+---
+
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Check status | `git status` |
+| Stage all | `git add .` |
+| Commit | `git commit -m "message"` |
+| View log | `git log --oneline --graph` |
+| Create & switch branch | `git switch -c feat/name` |
+| Switch branch | `git switch main` |
+| Delete merged branch | `git branch -d feat/name` |
+| Delete remote branch | `git push origin --delete feat/name` |
+| Fetch from upstream | `git fetch upstream` |
+| Push branch (first time) | `git push -u origin feat/name` |
+| Force push safely | `git push --force-with-lease` |
+| Stash changes | `git stash` / `git stash pop` |
+| Undo last commit (keep changes) | `git reset HEAD~1` |
+| Revert a pushed commit | `git revert HEAD` |
+| Create a release tag | `git tag -a v1.0.0 -m "message"` |
+| Push a tag | `git push origin v1.0.0` |
+
+---
+
+## Related
+
+- [Branch Naming Reference](/reference/branch-naming/) — naming conventions for all branch types in this project
+- [GitHub CLI Cheatsheet](/reference/gh-cheatsheet/) — equivalent operations using the `gh` CLI
+- [Module 01 · Repositories & Commits](/modules/01-repos-and-commits/) — staging, committing, and inspecting history
+- [Module 02 · Branching & Merging](/modules/02-branching-and-merging/) — branching, merging, and conflict resolution
+- [Module 07 · Collaboration at Scale](/modules/07-collaboration/) — the two-remote fork workflow
