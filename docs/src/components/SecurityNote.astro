@@ -1,0 +1,95 @@
+---
+// src/components/SecurityNote.astro
+// ============================================================
+// SecurityNote Component
+// ============================================================
+// Renders the distinctive security callout that appears in
+// every module. This replaces what MkDocs Material achieves
+// with `!!! warning` admonitions, but is fully custom-styled
+// and accepts structured props rather than free-form text.
+//
+// Usage in any .mdx file:
+//
+//   import SecurityNote from '@components/SecurityNote.astro';
+//
+//   <SecurityNote concept="Never Commit Secrets" module={1}>
+//     Your `.gitignore` file is the first line of defense...
+//   </SecurityNote>
+//
+// Props:
+//   concept  — Short name of the security concept (shown as badge)
+//   module   — Module number (0–9) for cross-referencing
+//   deepDive — Optional slug to a Security Thread page for more detail
+// ============================================================
+
+interface Props {
+  concept: string;
+  module?: number;
+  deepDive?: string;
+}
+
+const { concept, module: moduleNum, deepDive } = Astro.props;
+
+const deepDiveUrl = deepDive
+  ? `/github-for-ai-builders/security/${deepDive}/`
+  : null;
+---
+
+<aside class="security-note" aria-label={`Security Note: ${concept}`}>
+  <div class="security-note__header">
+    <span class="security-note__icon" aria-hidden="true">🔐</span>
+    <span>Security Note</span>
+    <span class="security-note__concept">{concept}</span>
+    {moduleNum !== undefined && (
+      <span class="security-note__module" aria-label={`Module ${moduleNum}`}>
+        · Module {moduleNum}
+      </span>
+    )}
+  </div>
+
+  <div class="security-note__body">
+    <slot />
+  </div>
+
+  {deepDiveUrl && (
+    <div class="security-note__footer">
+      <a href={deepDiveUrl} class="security-note__link">
+        Deep dive: {concept} →
+      </a>
+    </div>
+  )}
+</aside>
+
+<style>
+  /* Component-scoped styles that extend custom.css */
+  .security-note__module {
+    font-size: 0.7rem;
+    color: inherit;
+    opacity: 0.7;
+  }
+
+  .security-note__footer {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(194, 60, 10, 0.2);
+  }
+
+  .security-note__link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #c23c0a;
+    text-decoration: none;
+  }
+
+  .security-note__link:hover {
+    text-decoration: underline;
+  }
+
+  :global([data-theme='dark']) .security-note__footer {
+    border-top-color: rgba(240, 112, 64, 0.2);
+  }
+
+  :global([data-theme='dark']) .security-note__link {
+    color: #f07040;
+  }
+</style>

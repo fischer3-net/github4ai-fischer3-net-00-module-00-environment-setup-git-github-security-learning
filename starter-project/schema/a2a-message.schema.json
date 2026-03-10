@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/[your-org]/github-for-ai-builders/starter-project/schema/a2a-message.schema.json",
+  "title": "A2A Message",
+  "description": "The canonical request/response schema for all Agent-to-Agent communication in the starter project. Every Specialist Agent must accept requests and return responses conforming to this schema.",
+  "definitions": {
+    "request": {
+      "type": "object",
+      "title": "Agent Request",
+      "description": "Sent by the Orchestrator to a Specialist Agent's /run endpoint.",
+      "required": ["task", "input"],
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Short intent keyword used by the Orchestrator for routing. e.g. 'echo', 'search', 'calculate'",
+          "examples": ["echo", "search", "calculate"]
+        },
+        "input": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "The user's input or query to be processed by the agent."
+        },
+        "context": {
+          "type": "object",
+          "description": "Optional metadata passed from the Orchestrator. Agents may use or ignore this.",
+          "additionalProperties": true
+        },
+        "request_id": {
+          "type": "string",
+          "description": "Optional UUID for tracing a request through the system.",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "title": "Agent Response",
+      "description": "Returned by a Specialist Agent after processing a request.",
+      "required": ["agent", "status", "output"],
+      "additionalProperties": false,
+      "properties": {
+        "agent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The name of the agent that handled the request. e.g. 'echo', 'search'",
+          "examples": ["echo", "search"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["success", "error"],
+          "description": "Whether the agent successfully handled the request."
+        },
+        "output": {
+          "type": "string",
+          "description": "The agent's response to the input. Empty string on error."
+        },
+        "error": {
+          "type": "string",
+          "description": "Human-readable error message. Present only when status is 'error'."
+        },
+        "request_id": {
+          "type": "string",
+          "description": "Echo of the request_id from the incoming request, if provided.",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional metadata from the agent (e.g. sources, confidence, tokens used).",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/definitions/request" },
+    { "$ref": "#/definitions/response" }
+  ]
+}
