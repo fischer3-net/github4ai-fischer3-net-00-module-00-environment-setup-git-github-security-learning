@@ -1,0 +1,128 @@
+name: "💡 New Exercise or Challenge Idea"
+description: "Suggest a new hands-on exercise, challenge, or quiz question for an existing module."
+title: "[New Exercise] Module XX — Short description"
+labels: ["new-exercise", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Great exercises are the heart of this course. The best ones are grounded in the 
+        Agent-to-Agent project and teach a GitHub skill through doing, not just reading.
+        
+        Before submitting: check the module's `exercises/` folder to confirm your idea 
+        doesn't already exist.
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Which module is this exercise for?
+      options:
+        - "Module 00 — Environment Setup"
+        - "Module 01 — Repositories & Commits"
+        - "Module 02 — Branching & Merging"
+        - "Module 03 — Pull Requests & Code Review"
+        - "Module 04 — Issues, Projects & Discussions"
+        - "Module 05 — GitHub Actions & CI/CD"
+        - "Module 06 — Security on GitHub"
+        - "Module 07 — Collaboration at Scale"
+        - "Module 08 — Packages, Releases & Pages"
+        - "Module 09 — Capstone Project"
+    validations:
+      required: true
+
+  - type: input
+    id: exercise-title
+    attributes:
+      label: Exercise title
+      description: "A short, action-oriented title (e.g., 'Simulate and resolve a merge conflict')"
+      placeholder: "Verb + noun describing what the learner does"
+    validations:
+      required: true
+
+  - type: textarea
+    id: github-skill
+    attributes:
+      label: What GitHub skill does this exercise teach?
+      description: "Be specific — e.g., 'Using branch protection rules to require PR reviews before merging'"
+      placeholder: "Learners will practice..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: a2a-connection
+    attributes:
+      label: How does it connect to the A2A project?
+      description: |
+        Exercises grounded in the Agent-to-Agent starter project are strongly preferred.
+        How does this exercise use the Orchestrator, a Specialist Agent, or the CI pipeline?
+      placeholder: "In this exercise, learners will modify the Search Agent to... which requires them to..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty level
+      options:
+        - "Guided (step-by-step instructions)"
+        - "Semi-guided (goal + hints, learner figures out steps)"
+        - "Open-ended (goal only, learner determines approach)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Exercise format
+      options:
+        - "Individual exercise"
+        - "Pair exercise (two learners collaborate)"
+        - "Group exercise (3+ learners)"
+        - "Instructor-led demo"
+        - "Quiz / knowledge check"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Exercise description
+      description: |
+        Describe the exercise in enough detail that someone else could write it up.
+        Include: the setup, what the learner does, and how they know they've succeeded.
+      placeholder: |
+        Setup: Learners start from the Module 02 branch state...
+        The learner will: ...
+        Success looks like: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: security-angle
+    attributes:
+      label: Is there a security angle? (optional)
+      description: "If this exercise could include a security note or demonstrate a security concept, describe it here."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you like to write this exercise yourself?
+      options:
+        - label: "Yes — I'd like to open a PR with the full exercise (a maintainer will assign this issue to me)"
+        - label: "No — I'm suggesting it for someone else to write"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: "I checked the module's `exercises/` folder and this exercise doesn't already exist"
+          required: true
+        - label: "I've read the Content Style Guide in CONTRIBUTING.md"
+          required: true

@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 💬 Ask a Question (Q&A Discussion)
+    url: https://github.com/[your-org]/github-for-ai-builders/discussions/new?category=q-a
+    about: Have a question about course content? Start a Discussion — Issues are for actionable bugs and proposals only.
+
+  - name: 🎓 Educator Discussion
+    url: https://github.com/[your-org]/github-for-ai-builders/discussions/new?category=educators
+    about: Using this course in a classroom or bootcamp? Share your experience with other educators.
+
+  - name: 💡 Propose a New Module (start here first)
+    url: https://github.com/[your-org]/github-for-ai-builders/discussions/new?category=ideas
+    about: New module ideas must start as a Discussion before an Issue is opened. Click here to propose one.
+
+  - name: 🔒 Report a Security Vulnerability
+    url: https://github.com/[your-org]/github-for-ai-builders/security/advisories/new
+    about: Please report security vulnerabilities privately — do not open a public issue.

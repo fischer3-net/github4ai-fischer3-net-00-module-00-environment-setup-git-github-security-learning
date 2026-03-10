@@ -1,0 +1,73 @@
+# ============================================================
+# .gitignore — Python A2A Starter Project
+# ============================================================
+# MODULE 00 TEACHING REFERENCE:
+# This file tells Git which files to NEVER track.
+# Anything listed here will never appear in `git status`
+# and can never be accidentally staged or committed.
+# ============================================================
+
+# ── Secrets & Environment ──────────────────────────────────
+# CRITICAL: .env contains API keys and credentials.
+# Never commit this file. The .env.example file (which
+# contains placeholder names, not real values) IS committed.
+.env
+.env.*
+!.env.example
+
+# ── Python Runtime ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# ── Virtual Environments ──────────────────────────────────
+# If you use a venv, it lives here. Never commit it —
+# it contains thousands of files and is machine-specific.
+.venv/
+venv/
+env/
+ENV/
+
+# ── Testing & Coverage ────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# ── Build Artifacts ───────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+
+# ── Type Checking ─────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+
+# ── Jupyter Notebooks ─────────────────────────────────────
+# Notebook checkpoints contain output that shouldn't be
+# committed (may contain data or API responses)
+.ipynb_checkpoints/
+
+# ── AI / ML Specific ──────────────────────────────────────
+# Local model weight files — too large for Git, potentially
+# containing licensed or proprietary model data
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+models/
+
+# ── IDE / Editor ──────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

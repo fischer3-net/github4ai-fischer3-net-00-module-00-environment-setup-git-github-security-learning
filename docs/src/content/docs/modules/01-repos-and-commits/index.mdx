@@ -1,0 +1,599 @@
+---
+# src/content/docs/modules/01-repos-and-commits/index.mdx
+
+title: "Module 01 · Repositories & Commits"
+description: Learn how Git tracks your project history through repositories and commits. Initialize the Orchestrator Agent, write a meaningful README, and make your first commits with messages that tell a story.
+moduleNumber: 1
+duration: "60–75 minutes"
+difficulty: beginner
+hasSecurityNote: true
+securityConcept: "Sensitive File Patterns for AI Projects"
+projectStep: "Initialize the Orchestrator Agent repository and write its README"
+prerequisites: ["Module 00 · Environment Setup"]
+isCore: false
+
+learningObjectives:
+  - Explain the difference between a working directory, staging area, and commit history
+  - Initialize a Git repository and make your first commit
+  - Write commit messages that follow the Conventional Commits convention
+  - Author a README.md using Markdown that clearly describes a project
+  - Use git log, git diff, and git status to inspect repository state
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import ModuleHeader from '@components/ModuleHeader.astro';
+import SecurityNote from '@components/SecurityNote.astro';
+import A2AConnection from '@components/A2AConnection.astro';
+
+<ModuleHeader
+  duration={frontmatter.duration}
+  difficulty={frontmatter.difficulty}
+  prerequisites={frontmatter.prerequisites}
+  objectives={frontmatter.learningObjectives}
+  projectStep={frontmatter.projectStep}
+/>
+
+---
+
+## Background
+
+A **repository** (or "repo") is Git's name for a project folder that has version control enabled. Every file change, every save, every decision you make gets recorded as a **commit** — a snapshot of the project at a specific point in time. Together, these commits form a history you can inspect, rewind, and share.
+
+This might sound abstract, so let's ground it immediately: the Orchestrator Agent is the brain of your A2A system. Right now it exists only on disk. By the end of this module, it will exist as a properly initialized Git repository with a history that documents every intentional decision you made — and a README that explains the whole system to anyone who finds it on GitHub.
+
+<A2AConnection
+  step="Initialize the Orchestrator Agent repo"
+  agent="orchestrator"
+  files={['orchestrator/main.py', 'README.md', '.gitignore']}
+>
+  The Orchestrator is the entry point for the entire A2A system — it receives
+  incoming task requests and routes them to the right Specialist Agent. In this
+  module you'll initialize its repository, write a README that explains the full
+  A2A architecture (Orchestrator + Echo Agent + Search Agent), and commit the
+  initial project files. Every commit message you write here will model the
+  Conventional Commits standard that the CI pipeline enforces in Module 05.
+</A2AConnection>
+
+---
+
+## Concepts
+
+### The Three Areas of Git
+
+Understanding Git requires understanding three distinct places your files can live:
+
+```
+┌─────────────────────┐     git add      ┌──────────────────┐     git commit     ┌───────────────┐
+│   Working Directory │ ───────────────▶ │   Staging Area   │ ─────────────────▶ │    History    │
+│                     │                  │   (the Index)    │                    │  (commits)    │
+│  Your actual files  │ ◀─────────────── │                  │                    │               │
+│  on disk            │    git restore   │ What will go     │                    │ Permanent     │
+│                     │                  │ into next commit │                    │ snapshots     │
+└─────────────────────┘                  └──────────────────┘                    └───────────────┘
+```
+
+| Area | What it is | Command to move files in |
+|------|-----------|--------------------------|
+| **Working Directory** | Your files as they currently exist on disk | *(you edit them directly)* |
+| **Staging Area** | Files you've marked as ready for the next commit | `git add` |
+| **History** | Permanent, immutable snapshots of the project | `git commit` |
+
+The staging area is the key insight. It lets you be deliberate about what goes into each commit — you might edit five files but only stage three of them, so your commit stays focused on one logical change.
+
+### What is `git init`?
+
+`git init` creates a new, empty Git repository in the current directory. It adds a hidden `.git/` folder that stores the entire project history. You only ever run this once per project.
+
+```bash
+git init
+# Initialized empty Git repository in /path/to/project/.git/
+```
+
+<Aside type="note" title="git init vs. forking">
+  In Module 00 you **forked** an existing repository. Forking copies someone else's
+  history. `git init` starts fresh with no history at all. For the Orchestrator,
+  we start fresh because we're building it ourselves from scratch.
+</Aside>
+
+### Staging Files with `git add`
+
+```bash
+git add README.md          # Stage a specific file
+git add orchestrator/      # Stage everything in a directory
+git add .                  # Stage all changes in the current directory
+git add -p                 # Interactively stage individual chunks (powerful — try it later)
+```
+
+After running `git add`, use `git status` to see what's staged (green) vs. unstaged (red).
+
+### Writing Good Commit Messages
+
+A commit message is a gift to your future self and your collaborators. This course uses the **Conventional Commits** specification — the same standard enforced by the CI pipeline in Module 05.
+
+**Format:**
+```
+<type>(<scope>): <short description>
+
+[optional body — explain the why, not the what]
+
+[optional footer: closes #issue-number]
+```
+
+**Common types:**
+
+| Type | When to use it |
+|------|---------------|
+| `feat` | A new feature or capability |
+| `fix` | A bug fix |
+| `docs` | Documentation changes only |
+| `chore` | Maintenance — deps, config, tooling |
+| `test` | Adding or updating tests |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+
+**Examples — bad vs. good:**
+
+```bash
+# ❌ Bad — tells you nothing about why or what changed
+git commit -m "update"
+git commit -m "fix stuff"
+git commit -m "WIP"
+
+# ✅ Good — type, scope, clear description
+git commit -m "feat(orchestrator): add keyword-based agent routing"
+git commit -m "docs(readme): describe A2A system architecture"
+git commit -m "fix(echo-agent): handle empty input with 422 response"
+```
+
+<Aside type="tip" title="The 72-character rule">
+  Keep the subject line (first line) under 72 characters. Most Git tools truncate
+  beyond this point. If you need to explain more, add a blank line after the subject
+  and write a body paragraph explaining *why* you made this change.
+</Aside>
+
+### What Makes a Good README?
+
+A README is the front door of your project. When someone lands on your GitHub repository, the README is the first thing they read. A good README answers:
+
+1. **What** does this project do?
+2. **Why** does it exist?
+3. **How** do I run it?
+4. **How** do I contribute?
+
+For the Orchestrator, the README needs to explain the entire A2A system — because the Orchestrator only makes sense in context of the agents it routes to.
+
+### Useful Inspection Commands
+
+```bash
+git status            # What's staged, unstaged, or untracked?
+git diff              # What changed in unstaged files?
+git diff --staged     # What changed in staged files?
+git log               # Full commit history
+git log --oneline     # Compact history — one line per commit
+git log --oneline --graph   # History as a text diagram (useful in Module 02)
+git show <commit-sha> # See exactly what changed in a specific commit
+```
+
+---
+
+## Exercise
+
+### Part 1 — Inspect the Current State
+
+<Steps>
+1. In your Codespace terminal, navigate to the Python starter project:
+
+   ```bash
+   cd ~/github-for-ai-builders/starter-project/python
+   ```
+
+2. Check that `orchestrator/main.py` exists:
+
+   ```bash
+   ls orchestrator/
+   ```
+
+   You should see `main.py`.
+
+3. Run `git status` to see the current state:
+
+   ```bash
+   git status
+   ```
+
+   You'll see untracked files — the Orchestrator code exists on disk but
+   has never been committed.
+
+4. View the existing commit history:
+
+   ```bash
+   git log --oneline -5
+   ```
+
+   This shows the last 5 commits from the original repository history.
+</Steps>
+
+<Aside type="note" title="We're working inside the existing repo">
+  You're not running `git init` here because the repo was already initialized
+  when you forked and cloned it in Module 00. `git init` is only needed when
+  starting a brand-new project with no prior Git history. Understanding *when*
+  you need it is as important as knowing the command itself.
+</Aside>
+
+---
+
+### Part 2 — Write the Orchestrator README
+
+Before committing any code, write the documentation. This order is intentional — it forces you to think about what the project does before diving into how it's implemented.
+
+<Steps>
+1. Create a `README.md` in the orchestrator directory:
+
+   ```bash
+   code orchestrator/README.md
+   ```
+
+2. Write the README using the template below. Replace the bracketed
+   placeholders with your own words:
+
+   ````markdown
+   # Orchestrator Agent
+
+   The Orchestrator is the entry point for the A2A (Agent-to-Agent) system.
+   It receives task requests and routes them to the appropriate Specialist Agent
+   based on the `task` keyword in the request.
+
+   ## System Architecture
+
+   ```
+   Client Request
+        │
+        ▼
+   Orchestrator (port 8000)
+        │
+        ├──▶ Echo Agent   (port 8001) — task: "echo"
+        └──▶ Search Agent (port 8002) — task: "search"
+   ```
+
+   ## Quick Start
+
+   ```bash
+   # Install dependencies
+   pip install -r requirements.txt
+
+   # Configure environment
+   cp .env.example .env
+
+   # Start the Orchestrator
+   python orchestrator/main.py
+   ```
+
+   ## API
+
+   ### `GET /health`
+   Returns the health status of the Orchestrator.
+
+   ### `GET /agents`
+   Lists all registered Specialist Agents.
+
+   ### `POST /run`
+   Routes a task to the appropriate agent.
+
+   **Request body:**
+   ```json
+   {
+     "task": "echo",
+     "input": "Your input here"
+   }
+   ```
+
+   **Response:**
+   ```json
+   {
+     "agent": "echo",
+     "status": "success",
+     "output": "Echo: Your input here"
+   }
+   ```
+
+   ## Adding a New Agent
+
+   1. Create your agent in `agents/<name>/main.py`
+   2. Register it in `AGENT_REGISTRY` in `orchestrator/main.py`
+   3. Add its URL to `.env.example`
+   4. Open a Pull Request
+
+   ## License
+
+   MIT
+   ````
+
+3. Save the file, then check Git's view:
+
+   ```bash
+   git status
+   ```
+
+   `orchestrator/README.md` should appear as an **untracked file** — Git
+   sees it exists but isn't tracking it yet.
+</Steps>
+
+---
+
+### Part 3 — Stage and Commit the README
+
+<Steps>
+1. Stage the README:
+
+   ```bash
+   git add orchestrator/README.md
+   ```
+
+2. Confirm it's staged:
+
+   ```bash
+   git status
+   ```
+
+   The file should appear under **"Changes to be committed"** in green.
+
+3. Check what you're about to commit:
+
+   ```bash
+   git diff --staged
+   ```
+
+   This shows the exact content going into the commit. Get in the habit of
+   reviewing this before every commit — it's how you catch accidentally
+   staged files.
+
+4. Make your first commit:
+
+   ```bash
+   git commit -m "docs(orchestrator): add README with A2A architecture diagram"
+   ```
+
+5. Confirm the commit landed:
+
+   ```bash
+   git log --oneline -3
+   ```
+
+   Your new commit should appear at the top.
+</Steps>
+
+---
+
+### Part 4 — Commit the Orchestrator Code
+
+Now commit `main.py` separately from the README. Two distinct logical changes deserve two distinct commits — keeping them separate makes the history easier to read and easier to revert independently.
+
+<Steps>
+1. Stage the Orchestrator source file:
+
+   ```bash
+   git add orchestrator/main.py
+   ```
+
+2. Review what you're staging:
+
+   ```bash
+   git diff --staged
+   ```
+
+   You should see the full content of `main.py` as additions (lines
+   prefixed with `+`).
+
+3. Commit with a multi-line message — note the body explaining *why*:
+
+   ```bash
+   git commit -m "feat(orchestrator): add keyword-based agent routing
+
+   Routes incoming task requests to registered Specialist Agents
+   based on the task field. Currently supports: echo, search.
+
+   Agent URLs are configured via environment variables so the
+   Orchestrator doesn't need to be restarted to point at different
+   agent deployments."
+   ```
+
+4. View your commit history:
+
+   ```bash
+   git log --oneline
+   ```
+</Steps>
+
+---
+
+### Part 5 — Explore the History
+
+<Steps>
+1. Inspect your most recent commit in full detail:
+
+   ```bash
+   git show HEAD
+   ```
+
+   `HEAD` is Git's pointer to the most recent commit on the current branch.
+   The output shows the commit message, author, timestamp, and every line
+   that changed.
+
+2. Compare the README commit to the one before it:
+
+   ```bash
+   git diff HEAD~1 HEAD -- orchestrator/README.md
+   ```
+
+   `HEAD~1` means "one commit before HEAD." This is how you inspect what
+   changed between any two points in history.
+
+3. Practice interactive staging. Open `orchestrator/README.md` and add a
+   **Known Limitations** section at the bottom:
+
+   ```markdown
+   ## Known Limitations
+
+   - Routing is keyword-based only — the `task` field must exactly match
+     a registered agent name
+   - No retry logic if an agent is temporarily unavailable
+   - No request authentication between Orchestrator and agents
+   ```
+
+   Save the file, then run:
+
+   ```bash
+   git add -p orchestrator/README.md
+   ```
+
+   Git shows each changed chunk and asks what to do. Press `y` to stage,
+   `n` to skip, `s` to split, or `?` for help.
+
+4. Commit the staged chunk:
+
+   ```bash
+   git commit -m "docs(orchestrator): document known routing limitations"
+   ```
+
+5. Review your final three-commit history:
+
+   ```bash
+   git log --oneline
+   ```
+</Steps>
+
+---
+
+### Part 6 — Push to GitHub
+
+<Steps>
+1. Push your commits to your fork:
+
+   ```bash
+   git push origin main
+   ```
+
+2. Open your fork in the browser:
+   `https://github.com/YOUR-USERNAME/github-for-ai-builders`
+
+3. Navigate to `starter-project/python/orchestrator/` — your `README.md`
+   renders automatically below the file listing.
+
+4. Click the **Commits** link to see your history. Notice how descriptive
+   commit messages make the history readable without opening any files.
+</Steps>
+
+---
+
+## Markdown Reference
+
+Markdown is how GitHub renders `README.md` files and course content. Here are the elements used most often in this course:
+
+<Tabs>
+  <TabItem label="Headings & Text">
+    ```markdown
+    # H1 — Page title (use once per document)
+    ## H2 — Major section
+    ### H3 — Subsection
+
+    Regular paragraph. **Bold**, *italic*, `inline code`.
+
+    > Blockquote — useful for callouts or documentation quotes
+    ```
+  </TabItem>
+  <TabItem label="Lists & Tables">
+    ```markdown
+    - Unordered item
+    - Another item
+      - Nested (two-space indent)
+
+    1. Ordered item
+    2. Second item
+
+    | Column A | Column B |
+    |----------|----------|
+    | Cell     | Cell     |
+    ```
+  </TabItem>
+  <TabItem label="Code Blocks">
+    ````markdown
+    Inline code: `git status`
+
+    Fenced block with syntax highlighting:
+    ```bash
+    git add .
+    git commit -m "feat: my change"
+    git push origin main
+    ```
+    ````
+  </TabItem>
+  <TabItem label="Links & Images">
+    ```markdown
+    [Link text](https://example.com)
+    [Relative link](../other-file.md)
+
+    ![Alt text for accessibility](./images/diagram.png)
+
+    <!-- Shields.io badges -->
+    [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip" title="Preview Markdown in your Codespace">
+  In VS Code, open any `.md` file and press `Ctrl+Shift+V` (Windows/Linux) or
+  `Cmd+Shift+V` (macOS) to open a live preview. What you see there is exactly
+  what GitHub will render.
+</Aside>
+
+---
+
+<SecurityNote concept="Sensitive File Patterns for AI Projects" module={1} deepDive="never-commit-secrets">
+  Your `.gitignore` needs to cover file types that are common in AI projects
+  but rare in traditional software. Three categories deserve particular attention:
+
+  **Model weight files** (`*.gguf`, `*.bin`, `*.pt`, `*.safetensors`) can be
+  gigabytes in size and may contain licensed or proprietary model data. Git was
+  not designed for large binary files — a single accidental commit can make a
+  repository effectively unusable and is extremely difficult to remove from
+  history cleanly. Add these patterns before you ever download a model file.
+
+  **Experiment output directories** (`outputs/`, `runs/`, `mlruns/`) often
+  contain generated data, predictions, or embeddings that include fragments of
+  your training data. Committing these can constitute an unintentional data
+  leak even if the source data itself is properly protected elsewhere.
+
+  **LLM response caches** — libraries like LangChain and LlamaIndex can cache
+  API responses to disk to reduce costs during development. These caches may
+  contain user inputs or sensitive query content. Check any new library's
+  documentation for directories it writes to disk, and add them to `.gitignore`
+  before your first commit using that library.
+
+  The root `.gitignore` in this project already covers these patterns. Make it
+  a habit: whenever you add a new tool to the A2A project, the first thing you
+  check is whether it writes anything to disk that shouldn't be committed.
+</SecurityNote>
+
+---
+
+## Summary
+
+In this module you:
+
+- Learned the **three areas of Git** — working directory, staging area, and history — and why the staging area gives you control over what goes into each commit
+- Used `git add`, `git commit`, `git status`, `git diff`, and `git log` to build and inspect the Orchestrator's commit history
+- Wrote **Conventional Commits** messages including a multi-line message with an explanatory body
+- Authored a **README.md** in Markdown that describes the full A2A system architecture
+- Used **`git add -p`** to stage individual chunks rather than entire files
+- Pushed commits to GitHub and inspected the rendered result
+
+A clean, readable commit history is one of the most underrated skills in collaborative software development. Every commit you make from here on is a message to your future collaborators — and your future self.
+
+---
+
+## What's Next
+
+**[Module 02 · Branching & Merging →](/modules/02-branching-and-merging/)**
+
+You'll create a feature branch to add the Search Agent to the A2A system,
+experience a real merge conflict, and learn why no one — not even maintainers —
+should push directly to `main`.

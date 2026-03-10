@@ -1,0 +1,224 @@
+---
+# src/content/docs/reference/branch-naming.mdx
+
+title: "Branch Naming Reference"
+description: Conventions for naming Git branches in the GitHub for AI Builders project — covering feature work, fixes, modules, translations, and the starter project.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Every branch name in this repository follows a consistent pattern. This makes
+branches immediately readable in pull request lists, CI logs, and `git branch`
+output — without having to open the branch to understand its purpose.
+
+---
+
+## The Pattern
+
+```
+<type>/<short-description>
+```
+
+- **`type`** — what kind of work this branch contains (see table below)
+- **`short-description`** — 2–5 lowercase words joined by hyphens, specific enough to be unique
+
+**Examples:**
+```
+feat/module-03-pr-template
+fix/echo-agent-empty-input
+docs/facilitator-guide-timing
+translation/es-module-01
+chore/update-dependabot-config
+security/codeql-custom-queries
+```
+
+---
+
+## Branch Type Prefixes
+
+| Prefix | Use for | Examples |
+|--------|---------|---------|
+| `feat/` | New lesson content, new exercises, new starter project agents or capabilities | `feat/module-06-codeql-exercise` |
+| `fix/` | Correcting errors in lesson content, broken commands, starter project bugs | `fix/module-02-merge-conflict-steps` |
+| `docs/` | Updates to README, CONTRIBUTING, facilitator guide, or other repo docs | `docs/contributing-agent-checklist` |
+| `translation/` | Translated module content — always include the language code | `translation/es-module-00` |
+| `chore/` | Dependency updates, CI config, tooling, Dependabot | `chore/bump-fastapi-0116` |
+| `test/` | Adding or fixing unit or integration tests | `test/orchestrator-routing-coverage` |
+| `security/` | Security note additions, CodeQL config, workflow hardening | `security/pin-actions-shas` |
+| `refactor/` | Starter project code improvements that don't change behaviour | `refactor/echo-agent-response-builder` |
+| `release/` | Release preparation — version bumps, changelog | `release/v1-1-0` |
+
+---
+
+## Naming Rules
+
+### ✅ Do
+
+- **Use lowercase only.** Branch names are case-sensitive on most systems.
+  `Fix/Module-03` and `fix/module-03` are different branches.
+  ```
+  fix/module-03-typo          ✅
+  Fix/Module-03-Typo          ❌
+  ```
+
+- **Use hyphens to separate words.** Never spaces, underscores, or dots in
+  the description part.
+  ```
+  feat/search-agent-mock-results    ✅
+  feat/search_agent_mock_results    ❌
+  feat/search agent mock results    ❌
+  ```
+
+- **Include the module number for module-specific work.** Makes it obvious
+  which module a branch touches without opening it.
+  ```
+  fix/module-05-secrets-step-3      ✅
+  fix/actions-secrets               ⚠️  (acceptable, but less specific)
+  ```
+
+- **Be specific enough to be unique.** If someone can't tell from the branch
+  name alone whether it's related to their work, it's not specific enough.
+  ```
+  feat/module-06-dependabot-exercise    ✅
+  feat/new-exercise                     ❌  (which module? which topic?)
+  ```
+
+- **Keep descriptions short.** 2–5 words is the target. If you need more,
+  the scope of the branch is probably too broad.
+  ```
+  feat/module-03-draft-pr-exercise      ✅  (5 words, clear)
+  feat/module-03-add-new-exercise-for-draft-pull-requests    ❌  (too long)
+  ```
+
+### ❌ Don't
+
+- **Don't use your name or username** as part of the branch name. Branch names
+  describe *what*, not *who*.
+  ```
+  feat/module-02-branching    ✅
+  jane/module-02-branching    ❌
+  ```
+
+- **Don't use generic names.** Every branch looks like a bug fix or feature.
+  The name needs to say *which* one.
+  ```
+  fix/echo-agent-empty-input    ✅
+  fix/bug                       ❌
+  bugfix                        ❌
+  my-branch                     ❌
+  ```
+
+- **Don't include ticket or issue numbers in the branch name.** Reference
+  issues in the PR description instead. Branch names outlast issue trackers;
+  a bare number in a branch name is meaningless without context.
+  ```
+  fix/echo-agent-422-validation    ✅
+  fix/issue-142                    ❌
+  ```
+
+- **Don't use `wip/` as a permanent prefix.** If work in progress needs a
+  prefix, use the correct type prefix and open the PR as a **Draft** instead.
+
+---
+
+## Translation Branches
+
+Translation branches always follow this pattern:
+
+```
+translation/<language-code>-<module-slug>
+```
+
+Use [IETF language tags](https://www.iana.org/assignments/language-subtag-registry)
+for the language code:
+
+| Language | Code | Example branch |
+|----------|------|----------------|
+| Spanish | `es` | `translation/es-module-00` |
+| Portuguese (Brazil) | `pt-br` | `translation/pt-br-module-01` |
+| French | `fr` | `translation/fr-module-03` |
+| German | `de` | `translation/de-module-05` |
+| Japanese | `ja` | `translation/ja-module-00` |
+
+For translating multiple modules in one branch, use the section name:
+```
+translation/es-modules-00-through-03
+translation/pt-br-security-thread
+translation/fr-educators-section
+```
+
+---
+
+## Starter Project Branches
+
+When adding or modifying the A2A starter project, scope the branch name to
+the specific variant and component:
+
+```
+feat/python-calculator-agent
+feat/nodejs-calculator-agent
+fix/python-search-agent-timeout
+fix/nodejs-orchestrator-error-handling
+test/python-integration-health-checks
+```
+
+If the change applies equally to both variants:
+```
+feat/calculator-agent          (update both python/ and nodejs/ in one PR)
+fix/schema-request-validation
+```
+
+---
+
+## The `main` Branch
+
+`main` is the only permanent branch in this repository. It is protected:
+
+- No direct pushes — all changes arrive via Pull Request
+- At least one approving review required
+- CI must pass before merge
+- Branch must be up to date with `main` before merge
+
+**All other branches are temporary.** They exist to hold work in progress and
+are deleted after the PR is merged. This keeps the branch list clean and
+avoids "ghost branches" that accumulate over time.
+
+---
+
+## Quick Reference Card
+
+```
+feat/          New content or capability
+fix/           Correcting something broken
+docs/          Repository documentation
+translation/   Translated content (include language code)
+chore/         Maintenance and tooling
+test/          Test additions or fixes
+security/      Security improvements
+refactor/      Code quality (no behaviour change)
+release/       Release preparation
+
+Rules:
+  ✅ lowercase only
+  ✅ hyphens between words
+  ✅ 2–5 words in description
+  ✅ module number for module-specific work
+  ❌ no names or usernames
+  ❌ no spaces or underscores
+  ❌ no issue numbers
+  ❌ no generic names (bug, fix, update, wip)
+```
+
+<Aside type="tip" title="Check your branch name before pushing">
+  Before pushing a new branch, run `git branch` to see it listed alongside
+  others. If the name looks out of place or unclear compared to its neighbours,
+  rename it with `git branch -m old-name new-name` before the first push.
+</Aside>
+
+---
+
+## Related
+
+- [Git Command Cheatsheet](/reference/git-cheatsheet/) — common commands including branch operations
+- [Module 02 · Branching & Merging](/modules/02-branching-and-merging/) — hands-on practice with branch strategies
+- [CONTRIBUTING.md](https://github.com/[your-org]/github-for-ai-builders/blob/main/CONTRIBUTING.md) — full contributor workflow including PR process
