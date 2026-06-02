@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "concurrently": "^9.1.0",
+    "concurrently": "^10.0.1",
     "eslint": "^10.0.2",
     "jest": "^30.2.0",
     "supertest": "^7.0.0"
